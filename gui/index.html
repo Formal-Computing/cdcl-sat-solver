@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDCL Lab — Interactive SAT Solver</title>
+<style>
+:root{--ink:#23384b;--muted:#728191;--edge:#dce5eb;--blue:#305b83;--teal:#007f83;--red:#c44850;--gold:#a57a23}
+*{box-sizing:border-box}body{margin:0;font:14px/1.52 system-ui,sans-serif;color:var(--ink);background:#f4f7f9}
+header{background:#18334f;color:white;padding:19px 26px;display:flex;justify-content:space-between;align-items:center}
+header h1{font:600 28px/1.1 Georgia,serif;margin:0 0 5px}header p{color:#b9c9d6;margin:0}
+.tag{font-size:12px;border-radius:99px;padding:8px 14px;border:1px solid #91a7b9}
+main{max-width:1640px;margin:auto;padding:18px}
+.panel{background:white;border:1px solid var(--edge);border-radius:11px;box-shadow:0 2px 4px #182e4412;min-width:0}
+.setup,.pane,.timeline{padding:17px}.setup{margin-bottom:15px}
+h2{margin:0 0 12px;font-size:15px}.setup-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.field{display:flex;flex-direction:column;gap:5px}label{font-size:12px;font-weight:650;color:#4d6070}
+select,button,textarea{font:inherit}select,button{padding:8px 11px;border:1px solid #cad7e1;border-radius:6px;background:white;color:var(--ink)}
+button{cursor:pointer;font-weight:600}button:hover{background:#edf4f8}button.primary{color:white;background:var(--blue);border-color:var(--blue)}
+button.primary:hover{background:#244868}button:disabled{opacity:.4;cursor:default}
+input[type=file]{font-size:12px;max-width:245px}input[type=range]{accent-color:var(--blue);flex:1;min-width:120px}
+details{margin-top:11px}summary{cursor:pointer;color:var(--blue);font-weight:600}
+textarea{display:block;margin-top:8px;min-height:115px;width:100%;padding:10px;border:1px solid var(--edge);border-radius:5px;font:12px/1.45 Consolas,monospace}
+#notice{font-size:12px;color:var(--muted);margin-left:auto}
+.workspace{display:grid;grid-template-columns:minmax(250px,1fr) minmax(450px,2.15fr) minmax(235px,.95fr);gap:15px}
+.pane{min-height:420px}.pane-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px solid var(--edge);margin-bottom:11px;padding-bottom:8px}
+.pane-head h2{margin:0}.small{font-size:11px;color:var(--muted)}
+#clauses{max-height:490px;overflow-y:auto}.clause{display:flex;align-items:center;gap:8px;border:1px solid #e1eaf1;border-radius:6px;margin:6px 0;padding:8px}
+.clause .num{color:#748394;font-weight:750;font-size:11px;min-width:29px}
+.clause .expr{flex:1;font:15px/1.4 Georgia,serif;overflow-wrap:anywhere}
+.clause .flag{font-size:10px;font-weight:700}.clause.true{background:#eef9f5;border-color:#c9e5d8}.clause.true .flag{color:#167b56}
+.clause.false{background:#fff0ef;border-color:#f0c3c0}.clause.false .flag{color:var(--red)}
+.clause.open{background:#fffaf0;border-color:#f1e4c8}.clause.open .flag{color:var(--gold)}
+.clause.focus{outline:2px solid #6285a7;outline-offset:-2px}.clause.learned{border-left:4px solid var(--gold)}
+.graphbox{height:425px;overflow:auto;border:1px solid #e4ebef;border-radius:7px;background:#fbfdff}
+#graph{display:block;min-width:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:11px}
+.dot{width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:5px}
+#kind{color:var(--blue);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+#explanation{font-size:14px;padding:12px 0;border-bottom:1px solid var(--edge);min-height:78px}
+.stats{display:flex;gap:8px;margin:12px 0}.stat{border:1px solid var(--edge);border-radius:6px;padding:8px 12px;flex:1}
+.stat strong{display:block;font-size:21px}.stat span{font-size:11px;color:var(--muted)}
+#trail{max-height:195px;overflow-y:auto;font:12px Consolas,monospace}
+.trail{display:flex;justify-content:space-between;padding:5px;border-bottom:1px solid #edf1f4}.trail .why{color:var(--muted)}
+.timeline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:15px}
+#counter{font-weight:700;min-width:95px;text-align:right}
+.footer{font-size:12px;color:var(--muted);margin:12px 4px}
+@media(max-width:1150px){.workspace{grid-template-columns:1fr 1.6fr}.right{grid-column:span 2}}
+@media(max-width:680px){header{padding:16px}header .tag{display:none}main{padding:8px}.workspace{grid-template-columns:1fr}.right{grid-column:auto}.graphbox{height:320px}}
+</style>
+</head>
+<body>
+<header><div><h1>Conflict-Driven Clause Learning</h1><p>Interactive SAT laboratory · C++20 solver · First-UIP · MOMS</p></div><span class="tag">Formal Computing / CDCL</span></header>
+<main>
+<section class="panel setup">
+<h2>Select a DIMACS CNF formula</h2>
+<div class="setup-row">
+<div class="field"><label for="examples">Included examples</label><select id="examples"></select></div>
+<button id="load">Load example</button>
+<div class="field"><label for="file">Or open your .cnf file</label><input type="file" id="file" accept=".cnf,.txt"></div>
+<button class="primary" id="run">Run C++ solver</button><span id="notice" role="status"></span>
+</div>
+<details><summary>Edit / view DIMACS text</summary><textarea id="source" spellcheck="false"></textarea></details>
+</section>
+<div class="workspace">
+<section class="panel pane">
+<div class="pane-head"><h2>CNF clauses</h2><span id="formula-info" class="small">No formula</span></div>
+<div id="clauses"></div>
+<div class="legend"><span><i class="dot" style="background:#167b56"></i>Satisfied</span><span><i class="dot" style="background:#a57a23"></i>Open</span><span><i class="dot" style="background:#c44850"></i>False</span></div>
+</section>
+<section class="panel pane">
+<div class="pane-head"><h2>Implication graph</h2><span class="small">Reason edges are dashed</span></div>
+<div class="graphbox"><svg id="graph" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Implication graph of assigned Boolean variables"></svg></div>
+<div class="legend"><span><i class="dot" style="background:#305b83"></i>Decision</span><span><i class="dot" style="background:#007f83"></i>BCP</span><span><i class="dot" style="background:#c44850"></i>Conflict</span><span><i class="dot" style="background:#a57a23"></i>Learned clause</span></div>
+</section>
+<section class="panel pane right">
+<div class="pane-head"><h2>Step explanation</h2><span class="small" id="verdict">Waiting</span></div>
+<div id="kind">Ready</div><div id="explanation">Run the C++ solver, then select any event using the controls below.</div>
+<div class="stats"><div class="stat"><strong id="level">—</strong><span>Decision level</span></div><div class="stat"><strong id="assigned">—</strong><span>Assigned variables</span></div></div>
+<h2>Assignment trail</h2><div id="trail">No assignments.</div>
+</section>
+</div>
+<section class="panel timeline">
+<button id="reset">Reset</button><button id="prev">← Previous</button>
+<button class="primary" id="next">Next →</button><button id="play">Play</button>
+<input type="range" id="seek" min="0" max="0" value="0" aria-label="Event timeline"><span id="counter">0 / 0</span>
+</section>
+<p class="footer">This GUI replays the actual C++ solver's events, not a separately implemented Python solver. A consistent BCP fixed point is not necessarily SAT unless all clauses are satisfied.</p>
+</main>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const NS="http://www.w3.org/2000/svg";
+const colors={decision:"#305b83",propagate:"#007f83",conflict:"#c44850",learn:"#a57a23"};
+let result=null,step=0,playTimer=null;
+function symbol(lit){return (lit<0?"¬":"")+"x"+Math.abs(lit)}
+function clauseText(c){return c.length?"("+c.map(symbol).join(" ∨ ")+")":"⊥"}
+function svg(name,props,parent){const n=document.createElementNS(NS,name);for(const [k,v] of Object.entries(props||{}))n.setAttribute(k,v);if(parent)parent.appendChild(n);return n}
+function txt(g,x,y,s,color,size){const n=svg("text",{x:x,y:y,fill:color||"#23384b","font-family":"system-ui,sans-serif","font-size":size||13,"text-anchor":"middle","font-weight":600},g);n.textContent=s;return n}
+function edge(g,a,b,color,dash){svg("path",{d:"M"+a.x+" "+(a.y+24)+" C"+a.x+" "+(a.y+55)+","+b.x+" "+(b.y-55)+","+b.x+" "+(b.y-25),fill:"none",stroke:color,"stroke-width":2,"stroke-dasharray":dash?"5 5":"none","marker-end":color===colors.conflict?"url(#arrow-conflict)":dash?"url(#arrow-propagate)":"url(#arrow-decision)"},g)}
+function clauseAt(i){return result.clauses.concat(result.events.slice(0,i+1).filter(e=>e.type==="learn").map(e=>e.learned))}
+function values(trail){const m=new Map();trail.forEach(t=>m.set(Math.abs(t.literal),t.literal>0));return m}
+function state(clause,v){let unknown=false;for(const lit of clause){const n=Math.abs(lit);if(!v.has(n))unknown=true;else if(v.get(n)===(lit>0))return "true"}return unknown?"open":"false"}
+function drawClauses(e,clauses){
+ const box=el("clauses");box.replaceChildren();const v=values(e.trail);
+ clauses.forEach((c,i)=>{
+  const flag=state(c,v),row=document.createElement("div");row.className="clause "+flag+(i>=result.clauses.length?" learned":"")+(e.clause===i?" focus":"");
+  const n=document.createElement("span");n.className="num";n.textContent=(i>=result.clauses.length?"L"+(i-result.clauses.length+1):"C"+(i+1));
+  const f=document.createElement("span");f.className="expr";f.textContent=clauseText(c);
+  const r=document.createElement("span");r.className="flag";r.textContent=flag.toUpperCase();
+  row.append(n,f,r);box.appendChild(row);
+ });
+ el("formula-info").textContent=result.variables+" vars · "+clauses.length+" clauses";
+}
+function drawGraph(e,clauses){
+ const g=el("graph");g.replaceChildren();
+ const defs=svg("defs",{},g);
+ Object.entries(colors).forEach(([key,color])=>{
+  const marker=svg("marker",{id:"arrow-"+key,markerWidth:7,markerHeight:7,refX:6,refY:3,orient:"auto"},defs);
+  svg("path",{d:"M0 0 L7 3 L0 6 Z",fill:color},marker);
+ });
+ const byLevel=new Map(),pos=new Map();let maxLevel=e.level;
+ e.trail.forEach(t=>{
+  const i=byLevel.get(t.level)||0;byLevel.set(t.level,i+1);
+  pos.set(Math.abs(t.literal),{x:92+i*155,y:94+t.level*115,t:t});
+  maxLevel=Math.max(maxLevel,t.level);
+ });
+ const width=Math.max(720,Math.max(4,...byLevel.values())*165+125),height=Math.max(355,maxLevel*115+205);
+ g.setAttribute("width",width);g.setAttribute("height",height);g.setAttribute("viewBox","0 0 "+width+" "+height);
+ for(let level=0;level<=maxLevel;level++){
+  const y=94+level*115;
+  svg("line",{x1:15,y1:y+43,x2:width-12,y2:y+43,stroke:"#dce6ed","stroke-dasharray":"4 6"},g);
+  txt(g,55,y-44,"LEVEL "+level,"#758594",10);
+ }
+ let previous=null;
+ e.trail.forEach(t=>{
+  const node=pos.get(Math.abs(t.literal));
+  if(t.reason!==null){
+   const reason=clauses[t.reason]||[],seen=new Set();
+   reason.forEach(lit=>{const v=Math.abs(lit);if(v===Math.abs(t.literal)||seen.has(v))return;seen.add(v);
+    if(pos.has(v))edge(g,pos.get(v),node,colors.propagate,true)});
+  }else{if(previous)edge(g,previous,node,colors.decision,false);previous=node}
+ });
+ e.trail.forEach(t=>{
+  const a=pos.get(Math.abs(t.literal)),prop=t.reason!==null,current=e.literal===t.literal&&(e.type==="decision"||e.type==="propagate");
+  svg("rect",{x:a.x-56,y:a.y-26,width:112,height:52,rx:9,fill:prop?"#e8f7f6":"#eaf1f8",stroke:prop?colors.propagate:colors.decision,"stroke-width":current?3:1.5},g);
+  txt(g,a.x,a.y,symbol(t.literal)+" = T",prop?colors.propagate:colors.decision,13);
+  txt(g,a.x,a.y+18,prop?"BCP · C"+(t.reason+1):"Decision","#738292",10);
+ });
+ if(e.type==="conflict"&&e.clause!==null){
+  const x=width-100,y=94+maxLevel*115,reason=clauses[e.clause]||[];
+  reason.forEach(lit=>{if(pos.has(Math.abs(lit)))edge(g,pos.get(Math.abs(lit)),{x:x-60,y:y},colors.conflict,true)});
+  svg("rect",{x:x-61,y:y-25,width:122,height:50,rx:8,fill:"#ffeaea",stroke:colors.conflict,"stroke-width":2.5},g);
+  txt(g,x,y-2,"CONFLICT",colors.conflict,13);txt(g,x,y+16,"Clause "+(e.clause+1),colors.conflict,10);
+ }
+ if(e.type==="learn"&&e.learned.length){
+  const x=width/2,y=height-38;
+  svg("rect",{x:x-160,y:y-21,width:320,height:40,rx:9,fill:"#fff3da",stroke:colors.learn,"stroke-width":2},g);
+  txt(g,x,y+5,"LEARN "+e.learned.map(symbol).join(" ∨ "),colors.learn,13);
+ }
+ if(!e.trail.length)txt(g,width/2,height/2,"No assignments yet","#8496a6",15);
+}
+function stop(){if(playTimer!==null){clearInterval(playTimer);playTimer=null}el("play").textContent="Play"}
+function render(){
+ if(!result)return;
+ step=Math.max(0,Math.min(step,result.events.length-1));
+ const e=result.events[step],clauses=clauseAt(step);drawClauses(e,clauses);drawGraph(e,clauses);
+ el("kind").textContent=e.type.toUpperCase();el("explanation").textContent=e.detail;
+ el("level").textContent=e.level;el("assigned").textContent=e.trail.length+" / "+result.variables;
+ el("counter").textContent=(step+1)+" / "+result.events.length;
+ el("seek").max=result.events.length-1;el("seek").value=step;
+ el("prev").disabled=step===0;el("next").disabled=step===result.events.length-1;
+ el("verdict").textContent=step===result.events.length-1?result.status:"IN PROGRESS";
+ el("verdict").style.color=step===result.events.length-1?(result.status==="SAT"?"#167b56":colors.conflict):"#728191";
+ const trail=el("trail");trail.replaceChildren();
+ e.trail.forEach(t=>{const row=document.createElement("div");row.className="trail";
+  const left=document.createElement("span");left.textContent=(t.literal>0?"T ":"F ")+"x"+Math.abs(t.literal)+" · L"+t.level;
+  const right=document.createElement("span");right.className="why";right.textContent=t.reason===null?"decision":"clause C"+(t.reason+1);
+  row.append(left,right);trail.append(row);
+ });if(!e.trail.length)trail.textContent="No assignments.";
+}
+function notice(text){el("notice").textContent=text}
+async function loadExample(){
+ stop();const name=el("examples").value;
+ const r=await fetch("/api/example?name="+encodeURIComponent(name)),body=await r.json();
+ if(!r.ok)throw new Error(body.error);
+ el("source").value=body.cnf;notice(name+" loaded");
+}
+async function solve(){
+ stop();el("run").disabled=true;notice("Running C++ solver...");
+ try{
+  const r=await fetch("/api/solve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cnf:el("source").value})});
+  const data=await r.json();if(!r.ok)throw new Error(data.error||"Solver failed");
+  result=data;step=0;render();
+  notice(data.status+" · "+data.events.length+" steps · "+data.stats.learned+" learned");
+ }catch(e){notice("Error: "+e.message)}finally{el("run").disabled=false}
+}
+el("load").onclick=()=>loadExample().catch(e=>notice(e.message));
+el("run").onclick=solve;
+el("file").onchange=async function(){const file=this.files[0];if(!file)return;if(file.size>262144){notice("File too large");return}el("source").value=await file.text();notice(file.name+" loaded")};
+el("prev").onclick=()=>{stop();step--;render()};
+el("next").onclick=()=>{stop();step++;render()};
+el("reset").onclick=()=>{stop();step=0;render()};
+el("seek").oninput=e=>{stop();step=Number(e.target.value);render()};
+el("play").onclick=()=>{
+ if(playTimer!==null){stop();return}if(!result)return;
+ if(step===result.events.length-1)step=0;
+ el("play").textContent="Pause";
+ playTimer=setInterval(()=>{if(step===result.events.length-1){stop();return}step++;render()},850);
+};
+document.addEventListener("keydown",e=>{if(["TEXTAREA","INPUT","SELECT"].includes(document.activeElement.tagName))return;
+ if(e.key==="ArrowRight"&&result){stop();step++;render()}
+ if(e.key==="ArrowLeft"&&result){stop();step--;render()}
+});
+(async()=>{try{
+ const r=await fetch("/api/examples"),data=await r.json();
+ data.examples.forEach(name=>{const option=document.createElement("option");option.value=name;option.textContent=name;el("examples").append(option)});
+ el("examples").value=data.examples.includes("cdcl_backjump_to_one.cnf")?"cdcl_backjump_to_one.cnf":data.examples[0];
+ await loadExample();await solve();
+}catch(e){notice("Error: "+e.message)}})();
+</script></body></html>

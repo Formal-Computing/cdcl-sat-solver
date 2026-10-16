@@ -1,0 +1,6 @@
+c SAT, but choosing x1=true forces conflicting values of x2.
+c DPLL must backtrack and choose x1=false.
+p cnf 2 3
+-1 2 0
+-1 -2 0
+1 2 0
