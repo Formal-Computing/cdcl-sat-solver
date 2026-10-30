@@ -26,3 +26,5 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Differential test against Z3
         run: python tests/qflia_differential.py --cases 300
+      - name: Extended SMT-LIB arithmetic differential tests
+        run: python tests/qflia_extensions_differential.py --cases 180

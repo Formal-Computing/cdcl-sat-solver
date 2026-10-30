@@ -1,26 +1,28 @@
-# Reference examples for the future DPLL(T) implementation
+# SMT-LIB examples and expected results
 
-These are SMT-LIB 2 examples for theory-engine development; the current
-C++ SAT solver only accepts DIMACS CNF and cannot solve these files yet.
-The GUI provides a read-only preview instead of incorrectly claiming SAT or
-UNSAT using Boolean abstraction alone.
+The native C++20 CDCL(T) engine solves an explicitly limited QF_LIA fragment:
+Boolean combinations of linear integer inequalities, lexical let, integer
+and Boolean ite, and integer div/mod by **nonzero constant divisors**.
 
-| Example | Logic | Expected |
+Run a native input with ./build/sat_solver --smt examples/smt/<name>.smt2.
+Unsupported expressions return UNKNOWN, not a guessed SAT/UNSAT classification.
+Z3 is an independent reference implementation, not the native engine.
+
+| Example | Logic | Expected native result |
 |---|---|---|
+| qf_lia_three_literals_unsat.smt2 | QF_LIA | UNSAT |
+| qf_lia_ten_constraints_sat.smt2 | QF_LIA | SAT |
+| qf_lia_div_mod_let_ite.smt2 | QF_LIA | SAT |
 | lia_lattice_gap_uw.smt2 | QF_LIA | UNSAT |
 | lia_reynolds_dpll.smt2 | QF_LIA | UNSAT |
-| lra_halfplanes_reynolds.smt2 | QF_LRA | SAT |
-| dt_reynolds_color_list.smt2 | QF_DT | UNSAT |
-| mixed_reynolds_lia_dt.smt2 | LIA + algebraic datatypes | UNSAT |
+| lra_halfplanes_reynolds.smt2 | QF_LRA | UNKNOWN (reference Z3 SAT) |
+| dt_reynolds_color_list.smt2 | QF_DT | UNKNOWN (reference Z3 UNSAT) |
+| mixed_reynolds_lia_dt.smt2 | mixed | UNKNOWN (reference Z3 UNSAT) |
 
-Sources:
+References:
 - https://courses.cs.washington.edu/courses/csep590b/26sp/lecture/l02/02-theory/
 - https://courses.cs.washington.edu/courses/csep590b/26sp/lecture/l04/02-theory/
 - https://conferences.mpi-inf.mpg.de/rg1/vtsa17/slides/reynolds-vtsa-part1.pdf
 
-SAT demo: examples/uw_cdcl_lecture.cnf uses the six-clause formula
-from UW CSEP 590B Lecture 2 and is runnable in our CDCL GUI.
-
-Once LIA/DT plugins are implemented, use an independent reference SMT solver
-such as Z3 or cvc5 for differential testing, not as a substitute for claiming
-native theory support.
+The CNF example examples/uw_cdcl_lecture.cnf is independently runnable
+through the DIMACS mode and web-based CDCL visualizer.
