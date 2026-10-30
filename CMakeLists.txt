@@ -12,6 +12,8 @@ add_library(sat_core
     src/Watched.cpp
     src/Moms.cpp
     src/Trace.cpp
+    src/LiaArithmetic.cpp
+    src/QfLia.cpp
 )
 target_include_directories(sat_core PUBLIC include)
 target_compile_options(sat_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -20,6 +22,10 @@ add_executable(sat_solver src/main.cpp)
 target_link_libraries(sat_solver PRIVATE sat_core)
 
 enable_testing()
+add_executable(test_qflia tests/test_qflia.cpp)
+target_link_libraries(test_qflia PRIVATE sat_core)
+add_test(NAME native_qf_lia COMMAND test_qflia)
+
 add_executable(test_parser tests/test_parser.cpp)
 target_link_libraries(test_parser PRIVATE sat_core)
 add_test(NAME dimacs_parser COMMAND test_parser)

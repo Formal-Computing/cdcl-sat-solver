@@ -80,6 +80,14 @@ public:
     [[nodiscard]] SolveStatus solveCdcl();
 
     void setTracing(bool enabled) noexcept { tracing_ = enabled; }
+    // Stream complete state snapshots as they happen; do not retain an unbounded
+    // second copy in memory for the browser.
+    void setLiveTrace(std::ostream& output) noexcept {
+        tracing_ = true;
+        liveTrace_ = &output;
+    }
+    void writeLiveHeader(std::ostream& output, const CnfFormula& original) const;
+    void writeLiveFinal(std::ostream& output, SolveStatus result) const;
     [[nodiscard]] const std::vector<SolverEvent>& events() const noexcept { return events_; }
     [[nodiscard]] BranchChoice previewMoms() const { return chooseBranchVariable(); }
     [[nodiscard]] bool allClausesSatisfied() const;
@@ -111,6 +119,7 @@ private:
     SolveStats stats_;
     std::vector<LearningEvent> learningEvents_;
     bool tracing_ = false;
+    std::ostream* liveTrace_ = nullptr;
     std::vector<SolverEvent> events_;
     void logEvent(std::string type, std::string detail,
                   Literal literal = 0,

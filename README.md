@@ -33,12 +33,21 @@ Alternate port:
 The GUI supports example selection, opening your own DIMACS file, editing CNF,
 running the real C++ executable, and **Previous / Next / Play / Reset** step
 controls with a slider and keyboard arrows. It visualizes CNF clause statuses,
-decision levels, the trail, propagation reasons, and the implication graph.
+decision levels, the trail, propagation reasons, and the live implication graph.
+You can pan, zoom, fit the graph, follow the newest event, or scrub earlier events.
 Conflicts and learned clauses are displayed at their corresponding steps.
 
 The GUI is intended for *small educational examples*. It binds only to
-127.0.0.1, limits input size to 256 KiB, and imposes a 20-second solve limit.
-The C++ executable must be built first.
+127.0.0.1, limits input size to 256 KiB, and streams solver events to the browser as they happen.
+**There is no solver time limit and no fixed 5,000-event ceiling.** While a CNF is being solved, the
+interface shows a live elapsed-time clock. After completion, it displays the
+precisely measured C++ process wall time (startup, DIMACS parsing, CDCL and
+JSON serialization), distinct from browser rendering time. A very large trace
+can still exceed memory or practical browser-memory limits. The C++
+executable must be built first.
+
+After changing gui/app.py, restart any already running Python GUI server
+(Ctrl+C and rerun python3 gui/app.py) to load the updated backend.
 
 ## C++ command line
 
@@ -49,6 +58,7 @@ The C++ executable must be built first.
     ./build/sat_solver --propagate examples/bcp_chain.cnf
     ./build/sat_solver --parse examples/sat.cnf
     ./build/sat_solver --events-json examples/branch_backtrack.cnf
+    ./build/sat_solver --events-ndjson examples/branch_backtrack.cnf
 
 The default solver uses CDCL + MOMS.
 
@@ -60,6 +70,12 @@ It also prints the assignment trail at each recorded step.
 
 **--events-json** emits structured C++ events for the Python GUI backend,
 including snapshots of the trail and clause references.
+
+**--events-ndjson** emits a header, individual flushed solver events,
+a final SAT/UNSAT result, and stats. The GUI's /api/stream forwards them
+incrementally, so the implication graph updates during solving, not only
+at the end. Streaming has no wall-clock deadline. Large traces can still
+consume browser memory, so this is not an unlimited-memory guarantee.
 
 DIMACS SAT process exit codes: **10 = SAT**, **20 = UNSAT**, **1 = error**.
 These intentionally nonzero success codes can interrupt shell && chains.
@@ -137,3 +153,148 @@ For difficult problems, use a larger timeout or --filter hole8 / --filter hole9.
 Some SATLIB files use a trailing '%' then '0'. The DIMACS parser now accepts
 this historical end marker without modifying the downloaded CNF.
 See benchmarks/satlib/README.md for details and source attribution.
+
+
+## Native C++ QF_LIA CDCL(T) implementation (23 October 2026)
+
+The C++20 executable now accepts supported quantifier-free linear integer
+SMT-LIB 2 scripts directly, with no Z3 call or required Python dependency.
+
+    ./build/sat_solver --smt examples/smt/qf_lia_three_literals_unsat.smt2
+    ./build/sat_solver examples/smt/qf_lia_three_literals_unsat.smt2
+    ./build/sat_solver --smt-json examples/smt/qf_lia_three_literals_unsat.smt2
+
+Exit codes: SAT=10, UNSAT=20, UNKNOWN=0. JSON includes the atom map,
+integer and declared Boolean model where SAT, a learned theory-conflict example, Boolean CDCL
+passes, theory checks and integer branching counts.
+
+Architecture:
+- src/QfLia.cpp: S-expression parser, linear Int terms, Boolean/Tseitin
+  encoding, SAT abstraction, CDCL candidates and learned theory lemmas.
+- src/LiaArithmetic.cpp: exact checked 128-bit integer arithmetic,
+  sound integer gcd cuts, Fourier-Motzkin real feasibility,
+  exact rational witness reconstruction and integer branch-and-bound.
+- Every reported SAT model is checked against the actual integer
+  inequalities. Every UNSAT theory lemma is based on an independently
+  proven inconsistent set. The CDCL abstraction searches again after
+  adding the lemma.
+- Theory resource limits produce UNKNOWN, *never UNSAT*.
+
+The parser currently supports Int and Bool declarations, numeral constants,
+linear expressions with +, -, multiplication by integer constants,
+<, <=, >, >=, =, distinct, Boolean and/or/not/implies/xor, Boolean ite,
+annotations, metadata strings, set-logic QF_LIA, assert and
+exactly one check-sat. It rejects assertions added after check-sat.
+Nested non-linear multiplication, mod/div, let, integer ite, quantifiers
+and other theories are NOT yet handled by the native parser. Resource and
+size limits apply (32 integer variables, 128 distinct theory atoms,
+2,500 projection rows, 1,500 integer-search nodes, checked 128-bit
+coefficients, 2,048 CDCL(T) iterations). Unsupported inputs return
+UNKNOWN and an explanation; this is **not yet a complete QF_LIA solver**.
+
+The updated web app at http://127.0.0.1:8777 calls the **native C++ engine
+by default** for supported .smt2/QF_LIA files. Its interactive theory
+graph shows clickable arithmetic atoms and a sound learned conflict.
+This graph summarizes a theory conflict after solving; it does **not**
+claim to show the internal live arithmetic projection/search trace.
+A separate Z3 button is available solely for independent cross-checking.
+
+Demo: examples/smt/qf_lia_three_literals_unsat.smt2
+
+SAT demo: examples/smt/qf_lia_ten_constraints_sat.smt2
+
+Ten asserted constraints on x, y, z include integer bounds, a linear
+equation, weighted inequality, strict order, and an arithmetic disjunction.
+The native C++ engine produces an integer model and the GUI lists this file
+under its QF_LIA teaching examples. One valid model is x=3, y=4, z=2.
+
+    ./build/sat_solver --smt examples/smt/qf_lia_ten_constraints_sat.smt2
+
+
+    L1: x >= 0
+    L2: y >= 0
+    L3: x + y <= -1
+
+All three literals are needed: the native learned theory conflict is
+L1, L2, L3, and the final verdict is UNSAT. The native core also
+handles examples/smt/lia_lattice_gap_uw.smt2 and
+examples/smt/lia_reynolds_dpll.smt2.
+
+Regression tests: CTest target native_qf_lia, Python web-bridge checks,
+and seeded differential checks against independent Z3 on 150 small
+random formulas (0 mismatches in the tested sample).
+All existing CNF SAT/trace functionality is preserved.
+
+## SMT theory roadmap and teaching inputs
+
+See docs/SMT_ROADMAP.md for the broader path toward fuller QF_LIA,
+LRA, datatypes, shared equalities and richer streaming theory traces.
+The examples/smt directory includes native QF_LIA examples as well
+as non-QF_LIA reference inputs that only Z3 currently handles.
+
+## Interactive literal inspector (23 October 2026)
+
+In the implication graph, click or keyboard-focus (Tab, Enter/Space) a
+literal node, or click any literal of a CNF clause. The right-hand
+Selected literal panel displays:
+- its truth assignment and decision level at the current solver event;
+- a concrete BCP reason clause and antecedents, if propagated;
+- immediate propagated consequences and clause occurrences.
+The corresponding nodes, reason edges, and clauses are highlighted.
+This is based on the real C++ CDCL trail, not an imagined graph.
+
+## SMT-COMP 2020 benchmark explorer
+
+Official catalog: https://smt-comp.github.io/2020/benchmarks.html
+Published single-query selection list:
+https://smt-comp.github.io/2020/selected_benchmarks/benchmark_selection_single_query_2020.tar.xz
+
+The browser indexes 89,924 selected paths (70 logics) from a compressed
+738 KiB local catalog, gui/catalog/smtcomp2020_selected.json.gz.
+It does not download all of the SMT-LIB benchmark bodies.
+Choose source, logic, search, and one benchmark, then press Fetch.
+
+The original 2020 source collection is on StarExec; this index has paths,
+not the benchmark contents. A verified bounded, individually downloadable
+2025 mirror exposes 200 examples, 81 with exactly matching 2020 paths:
+https://github.com/rjungemann/smt-lib-benchmarks
+This later-release mirror does not establish byte-identical content
+with the original 2020 competition. The UI explicitly labels this.
+The original mirror corpus attributes SMT-LIB 2025 benchmarks under CC-BY-4.0.
+For entries with no verified individual-file URL, the GUI reports this rather
+than inventing a download. Local .smt2 upload is always supported.
+
+The server's HTTPS-only curl fetch path derives URLs exclusively from
+a committed trusted whitelist, never from arbitrary user-entered URLs.
+Only the requested file (max 2 MiB) is downloaded and verified as recognizable
+SMT-LIB text; it is cached under gui/.benchmark-cache/. The response reports
+a SHA-256 fingerprint and origin. Subsequent fetches reuse the cached file.
+
+For supported QF_LIA SMT-LIB input, click **Solve with native C++
+QF_LIA**. This runs our C++ CDCL(T) backend. For independent validation
+or currently unsupported theories, **Cross-check with Z3** invokes
+the separately installed reference solver. The optional reference
+engine is not the implementation of the native QF_LIA solver.
+
+For DIMACS .cnf inputs and the live propositional implication graph,
+click **Run C++ solver**. Native SMT explanation graphs currently
+render after completion. Both native and reference SMT execution have
+no automatic wall-clock limit and expose a Stop button.
+
+Install the optional Z3 engine into an isolated environment (on Paradis this
+environment was already created at /home/admin/.venvs/cdcl-smt):
+
+    python3 -m venv ~/.venvs/cdcl-smt
+    ~/.venvs/cdcl-smt/bin/python -m pip install z3-solver
+    python3 gui/app.py
+
+The app locates this interpreter automatically, or you may set
+CDCL_SMT_PYTHON to any Python interpreter with z3-solver installed.
+No benchmark corpus bulk downloads or forced solver timeouts are required.
+
+Tests:
+
+    ctest --test-dir build --output-on-failure
+
+Tests cover the 2020 catalog counts, strict trusted IDs, mirror filtering,
+reference LIA/LRA/DT results, and real C++ NDJSON event streaming.

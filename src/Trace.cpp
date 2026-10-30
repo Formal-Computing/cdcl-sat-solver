@@ -8,11 +8,21 @@
 
 namespace sat {
 
+namespace { void jsonEvent(std::ostream&, const SolverEvent&); }
+
 void Solver::logEvent(std::string type, std::string detail, Literal literal,
                       std::optional<std::size_t> clause, int targetLevel, Clause learned) {
     if (!tracing_) return;
-    events_.push_back({std::move(type), std::move(detail), decisionLevel_,
-                       literal, clause, targetLevel, std::move(learned), trail_});
+    SolverEvent event{std::move(type), std::move(detail), decisionLevel_,
+                      literal, clause, targetLevel, std::move(learned), trail_};
+    if (liveTrace_) {
+        *liveTrace_ << "{\"kind\":\"event\",\"event\":";
+        jsonEvent(*liveTrace_, event);
+        *liveTrace_ << "}\n";
+        liveTrace_->flush(); // each event must be visible before solving ends
+    } else {
+        events_.push_back(std::move(event));
+    }
 }
 
 bool Solver::allClausesSatisfied() const {
@@ -69,7 +79,54 @@ void jsonClauses(std::ostream& out, const CnfFormula& f) {
     out << ']';
 }
 
+void jsonEvent(std::ostream& out, const SolverEvent& e) {
+    out << "{\"type\":";
+    jsonString(out, e.type);
+    out << ",\"detail\":";
+    jsonString(out, e.detail);
+    out << ",\"level\":" << e.level << ",\"literal\":" << e.literal
+        << ",\"clause\":";
+    if (e.clauseIndex) out << *e.clauseIndex;
+    else out << "null";
+    out << ",\"target\":" << e.targetLevel << ",\"learned\":";
+    jsonClause(out, e.learned);
+    out << ",\"trail\":[";
+    for (std::size_t j = 0; j < e.trail.size(); ++j) {
+        if (j) out << ',';
+        const TrailEntry& entry = e.trail[j];
+        out << "{\"literal\":" << entry.literal
+            << ",\"level\":" << entry.decisionLevel << ",\"reason\":";
+        if (entry.reasonClause) out << *entry.reasonClause;
+        else out << "null";
+        out << '}';
+    }
+    out << "]}";
+}
+
 } // namespace
+
+void Solver::writeLiveHeader(std::ostream& out, const CnfFormula& original) const {
+    out << "{\"kind\":\"header\",\"version\":2,\"algorithm\":\"CDCL-MOMS\","
+           "\"variables\":" << original.variableCount << ",\"clauses\":";
+    jsonClauses(out, original);
+    out << "}\n";
+    out.flush();
+}
+
+void Solver::writeLiveFinal(std::ostream& out, SolveStatus result) const {
+    out << "{\"kind\":\"complete\",\"status\":";
+    jsonString(out, result == SolveStatus::Satisfiable ? "SAT" : "UNSAT");
+    out << ",\"model\":";
+    jsonClause(out, model_);
+    out << ",\"stats\":{\"decisions\":" << stats_.decisions
+        << ",\"conflicts\":" << stats_.conflicts
+        << ",\"backtracks\":" << stats_.backtracks
+        << ",\"propagations\":" << stats_.unitPropagations
+        << ",\"learned\":" << stats_.learnedClauses
+        << ",\"backjumps\":" << stats_.nonChronologicalBackjumps
+        << "}}\n";
+    out.flush();
+}
 
 void Solver::writeEventJson(std::ostream& out, const CnfFormula& original,
                             SolveStatus result) const {

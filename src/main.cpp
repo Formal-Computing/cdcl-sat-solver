@@ -1,18 +1,41 @@
 #include "DimacsParser.hpp"
 #include "Solver.hpp"
+#include "QfLia.hpp"
 
 #include <exception>
 #include <iostream>
 #include <string_view>
 
 int main(int argc, char* argv[]) {
-    enum class Mode { Cdcl, Dpll, Parse, Propagate, Trace, Verbose, Json };
+    const bool implicitSmt = argc == 2 && std::string_view(argv[1]).ends_with(".smt2");
+    if (implicitSmt || (argc == 3 && (std::string_view(argv[1]) == "--smt" ||
+                      std::string_view(argv[1]) == "--smt-json"))) {
+        const lia::Result result = lia::solveFile(implicitSmt ? argv[1] : argv[2]);
+        if (std::string_view(argv[1]) == "--smt-json") {
+            std::cout << lia::toJson(result) << '\n';
+        } else {
+            std::cout << "c Native C++ CDCL(T) QF_LIA: Boolean iterations="
+                      << result.booleanIterations << " theory checks="
+                      << result.theoryChecks << " integer branches="
+                      << result.theoryBranches << '\n';
+            if (!result.reason.empty()) std::cout << "c " << result.reason << '\n';
+            std::cout << "s " << lia::statusName(result.status) << '\n';
+            if (result.status == lia::Status::Sat) {
+                for (const auto& [name, value] : result.model)
+                    std::cout << "v " << name << " = " << value << '\n';
+            }
+        }
+        return result.status == lia::Status::Sat ? 10 :
+               result.status == lia::Status::Unsat ? 20 : 0;
+    }
+    enum class Mode { Cdcl, Dpll, Parse, Propagate, Trace, Verbose, Json, JsonStream };
     Mode mode = Mode::Cdcl;
     const char* path = nullptr;
     const auto usage = [] {
         std::cerr << "Usage: sat_solver "
-                     "[--dpll|--parse|--propagate|--trace|--verbose|--events-json] "
-                     "<input.cnf>\n";
+                     "[--dpll|--parse|--propagate|--trace|--verbose|--events-json|--events-ndjson] "
+                     "<input.cnf>\n"
+                     "       sat_solver [--smt|--smt-json] <input.smt2>\n";
     };
 
     if (argc == 2 && argv[1][0] != '-') {
@@ -25,6 +48,7 @@ int main(int argc, char* argv[]) {
         else if (option == "--trace") mode = Mode::Trace;
         else if (option == "--verbose") mode = Mode::Verbose;
         else if (option == "--events-json") mode = Mode::Json;
+        else if (option == "--events-ndjson") mode = Mode::JsonStream;
         else {
             usage();
             return 2;
@@ -74,8 +98,17 @@ int main(int argc, char* argv[]) {
         }
 
         const bool dpll = mode == Mode::Dpll;
-        solver.setTracing(mode == Mode::Verbose || mode == Mode::Json);
+        if (mode == Mode::JsonStream) {
+            solver.setLiveTrace(std::cout);
+            solver.writeLiveHeader(std::cout, formula);
+        } else {
+            solver.setTracing(mode == Mode::Verbose || mode == Mode::Json);
+        }
         const sat::SolveStatus result = dpll ? solver.solve() : solver.solveCdcl();
+        if (mode == Mode::JsonStream) {
+            solver.writeLiveFinal(std::cout, result);
+            return result == sat::SolveStatus::Satisfiable ? 10 : 20;
+        }
         if (mode == Mode::Json) {
             solver.writeEventJson(std::cout, formula, result);
             return result == sat::SolveStatus::Satisfiable ? 10 : 20;

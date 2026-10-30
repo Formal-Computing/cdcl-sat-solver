@@ -3,3 +3,7 @@ build/
 .vscode/
 *.o
 *.out
+
+# Lazy per-file downloads; never commit downloaded benchmark contents.
+gui/.benchmark-cache/
+__pycache__/
