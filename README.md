@@ -185,12 +185,25 @@ linear expressions with +, -, multiplication by integer constants,
 <, <=, >, >=, =, distinct, Boolean and/or/not/implies/xor, Boolean ite,
 annotations, metadata strings, set-logic QF_LIA, assert and
 exactly one check-sat. It rejects assertions added after check-sat.
-Nested non-linear multiplication, mod/div, let, integer ite, quantifiers
-and other theories are NOT yet handled by the native parser. Resource and
-size limits apply (32 integer variables, 128 distinct theory atoms,
-2,500 projection rows, 1,500 integer-search nodes, checked 128-bit
-coefficients, 2,048 CDCL(T) iterations). Unsupported inputs return
-UNKNOWN and an explanation; this is **not yet a complete QF_LIA solver**.
+The native engine additionally supports SMT-LIB's simultaneous lexical
+let (including nested shadowing), typed integer/Boolean ite, and exact
+Euclidean div and mod by **nonzero constant integer expressions**.
+For each constant division, the front-end adds internal quotient/remainder
+integer variables constrained by n = d*q + r and 0 <= r < abs(d).
+Both positive and negative divisors use SMT-LIB's Euclidean remainder.
+For integer ite, branch-guarded equalities tie a fresh integer variable
+to the selected branch; the unselected branch imposes no restriction.
+These constructions are handled by the native CDCL(T) theory solver,
+not delegated to Z3. Local let bindings are scoped and simultaneous.
+
+**Still unsupported:** variable divisors (nonlinear multiplication),
+division by zero (underspecified), non-linear products, arbitrary
+integer operators, quantifiers and other SMT theories. Unsupported inputs
+return UNKNOWN. Resource limits include 32 integer variables **including
+fresh internal arithmetic variables**, 128 distinct theory atoms, 2,500
+projection rows, 1,500 integer-search nodes, checked 128-bit coefficients
+and 2,048 CDCL(T) iterations. This remains an explicitly bounded QF_LIA
+fragment rather than complete SMT-LIB conformance.
 
 The updated web app at http://127.0.0.1:8777 calls the **native C++ engine
 by default** for supported .smt2/QF_LIA files. Its interactive theory
@@ -221,8 +234,17 @@ handles examples/smt/lia_lattice_gap_uw.smt2 and
 examples/smt/lia_reynolds_dpll.smt2.
 
 Regression tests: CTest target native_qf_lia, Python web-bridge checks,
-and seeded differential checks against independent Z3 on 150 small
-random formulas (0 mismatches in the tested sample).
+seeded QF_LIA differential tests against Z3, plus the independent
+tests/qflia_extensions_differential.py covering div/mod, nested let and
+integer ite (both SAT/UNSAT statuses and validity of returned models).
+Run the full test suite and both Z3-oracle scripts using GitHub Actions.
+
+Combined example: examples/smt/qf_lia_div_mod_let_ite.smt2.
+Run it with:
+    ./build/sat_solver --smt examples/smt/qf_lia_div_mod_let_ite.smt2
+
+Reference Z3 is used only to check results in tests and through the
+separate reference GUI action, never as the native QF_LIA algorithm.
 All existing CNF SAT/trace functionality is preserved.
 
 ## SMT theory roadmap and teaching inputs

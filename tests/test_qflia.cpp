@@ -93,5 +93,67 @@ int main() {
            .status==Status::Unknown);
     assert(solve("(set-info :notes \"never closes)(check-sat)")
            .status==Status::Unknown);
+
+    // Euclidean integer division and modulus: remainder always nonnegative.
+    expected("(assert (= (div 5 2) 2))",Status::Sat);
+    expected("(assert (= (mod 5 2) 1))",Status::Sat);
+    expected("(assert (= (div (- 5) 2) (- 3)))",Status::Sat);
+    expected("(assert (= (mod (- 5) 2) 1))",Status::Sat);
+    expected("(assert (= (div 5 (- 2)) (- 2)))",Status::Sat);
+    expected("(assert (= (mod 5 (- 2)) 1))",Status::Sat);
+    expected("(assert (= (div (- 5) (- 2)) 3))",Status::Sat);
+    expected("(assert (= (mod (- 5) (- 2)) 1))",Status::Sat);
+    expected("(assert (not (= (div (- 5) 2) (- 3))))",Status::Unsat);
+    expected("(assert (not (= (mod (- 5) 2) 1)))",Status::Unsat);
+    expected("(assert (not (= (mod x 1) 0)))",Status::Unsat);
+    expected("(assert (not (= (div x 1) x)))",Status::Unsat);
+    expected("(assert (not (= (+ (* 4 (div x 4)) (mod x 4)) x)))",Status::Unsat);
+    expected("(assert (= x (- 11)))(assert (= (div x 4) (- 3)))"
+             "(assert (= (mod x 4) 1))",Status::Sat);
+    expected("(assert (= x 14))(assert (= (mod x (- 3)) 2))"
+             "(assert (= (div x (- 3)) (- 4)))",Status::Sat);
+    expected("(assert (= (mod (+ (* 3 x) 1) 3) 2))",Status::Unsat);
+    expected("(assert (= (div x y) 1))",Status::Unknown);
+    expected("(assert (= (mod x y) 0))",Status::Unknown);
+    expected("(assert (= (div x 0) 1))",Status::Unknown);
+    expected("(assert (= (mod x 0) 0))",Status::Unknown);
+
+    // Simultaneous, capture-safe let and local lexical shadowing.
+    expected("(assert (= (let ((a (+ x 1)) (b 2)) (+ a b)) (+ x 3)))",
+             Status::Sat);
+    expected("(assert (not (= (let ((a (+ x 1)) (b 2)) (+ a b)) (+ x 3))))",
+             Status::Unsat);
+    expected("(assert (= x 2))(assert (= (let ((x 9) (y x)) y) 2))",
+             Status::Sat);
+    expected("(assert (= x 2))(assert (= (let ((x 9) (y x)) y) 9))",
+             Status::Unsat);
+    expected("(assert (= (let ((x 2)) (let ((x (+ x 1))) x)) 3))",Status::Sat);
+    expected("(assert (let ((b (> x 1))) (and b (> x 1))))",Status::Sat);
+    expected("(assert (let ((p true) (q false)) (and p (not q))))",Status::Sat);
+    expected("(assert (let ((p true)) (not p)))",Status::Unsat);
+    expected("(assert (= (let ((x 9)) (div x 4)) 2))",Status::Sat);
+    expected("(assert (= (let ((q (div x 3))) (+ q q))"
+             " (* 2 (div x 3))))",Status::Sat);
+    expected("(assert (let ((p (>= x 1))) (ite p true false)))"
+             "(assert (< x 1))",Status::Unsat);
+    expected("(assert (let ((a 1) (a 2)) (= a 1)))",Status::Unknown);
+
+    // Integer ite ties a fresh arithmetic witness to the selected branch.
+    expected("(assert (= (ite (> x 0) 3 7) 3))(assert (> x 0))",Status::Sat);
+    expected("(assert (= (ite (> x 0) 3 7) 3))(assert (<= x 0))",Status::Unsat);
+    expected("(assert (= (ite (> x 0) (+ x 1) (- x 1)) 4))"
+             "(assert (= x 3))",Status::Sat);
+    expected("(assert (= (ite (> x 0) (+ x 1) (- x 1)) 4))"
+             "(assert (= x (- 3)))",Status::Unsat);
+    expected("(assert (= (ite (> x 0) (div x 2) (mod x 2)) (- 3)))"
+             "(assert (= x (- 5)))",Status::Unsat);
+    expected("(assert (= (ite (> x 0) (div x 2) (mod x 2)) 1))"
+             "(assert (= x (- 5)))",Status::Sat);
+    expected("(assert (= (ite (> x 0) (ite (> y 0) 1 2) 3) 2))"
+             "(assert (> x 0))(assert (<= y 0))",Status::Sat);
+    expected("(assert (not (= (ite true x y) x)))",Status::Unsat);
+    expected("(assert (not (= (ite false x y) y)))",Status::Unsat);
+    expected("(assert (= (ite true 1 false) 1))",Status::Unknown);
+
     std::cout << "Native QF_LIA unit suite: passed\n";
 }

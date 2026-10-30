@@ -1,0 +1,21 @@
+; Example for native C++ QF_LIA div/mod/let/integer-ite.
+; A valid original-variable model is x=-11, y=1, b=true.
+(set-logic QF_LIA)
+(set-info :status sat)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const b Bool)
+(assert (= x (- 11)))
+(assert b)
+(assert (= y
+    (let ((q (div x 4))
+          (r (mod x 4)))
+      (ite b r q))))
+(assert (= y 1))
+(assert (= (div x (- 4)) 3))
+(assert (= (mod x (- 4)) 1))
+(assert (let ((r (mod x 4))
+              (q (div x 4)))
+          (= (+ (* 4 q) r) x)))
+(check-sat)
+(get-model)

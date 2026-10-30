@@ -97,6 +97,13 @@ public:
     std::vector<std::string> descriptions;
     std::vector<int> satVariables;
     std::map<std::string,int> interned;
+    struct Binding {
+        bool boolType=false;
+        Linear linear;
+        int booleanLiteral=0;
+    };
+    using Scope=std::map<std::string,Binding>;
+    std::vector<Scope> scopes;
     explicit Builder(const Terms&commands) {
         // Discover variable declarations first.
         for(const Node&command:commands) {
@@ -160,24 +167,115 @@ private:
         declaredBoolean[name]=var();
     }
     int var(){return nextSat++;}
-    bool isBoolean(const Node&node) const {
-        if(!node.isList)
+    const Binding* bound(const std::string&name) const {
+        for(auto it=scopes.rbegin();it!=scopes.rend();++it) {
+            const auto found=it->find(name);
+            if(found!=it->end())return &found->second;
+        }
+        return nullptr;
+    }
+    std::vector<std::pair<std::string,Node>> letEntries(const Node&node) const {
+        if(node.children.size()!=3 || !node.children[1].isList)
+            throw Unsupported("let expects bindings and one body");
+        std::vector<std::pair<std::string,Node>> entries;
+        std::set<std::string> seen;
+        for(const Node&b:node.children[1].children) {
+            if(!b.isList||b.children.size()!=2||b.children[0].isList)
+                throw Unsupported("Malformed let binding");
+            const auto&name=b.children[0].text;
+            if(!seen.insert(name).second)throw Unsupported("Duplicate let binding: "+name);
+            entries.emplace_back(name,b.children[1]);
+        }
+        return entries;
+    }
+    // SMT-LIB let has simultaneous bindings: evaluate all RHS in OUTER scope.
+    Scope evaluatedLet(const Node&node) {
+        Scope result;
+        const auto entries=letEntries(node);
+        for(const auto&[name,value]:entries) {
+            Binding binding;
+            binding.boolType=isBoolean(value);
+            if(binding.boolType)binding.booleanLiteral=boolean(value);
+            else binding.linear=term(value);
+            result.emplace(name,std::move(binding));
+        }
+        return result;
+    }
+    bool isBoolean(const Node&node) {
+        if(!node.isList) {
+            if(const Binding* b=bound(node.text))return b->boolType;
             return node.text=="true"||node.text=="false"||
                    declaredBoolean.count(node.text)>0;
+        }
         if(node.children.empty()||node.children[0].isList)return false;
         const auto&op=node.children[0].text;
+        if(op=="!") {
+            if(node.children.size()<2)throw Unsupported("Malformed annotation");
+            return isBoolean(node.children[1]);
+        }
+        if(op=="let") {
+            Scope types;
+            const auto entries=letEntries(node);
+            for(const auto&[name,value]:entries) {
+                Binding binding;
+                binding.boolType=isBoolean(value);
+                types.emplace(name,std::move(binding));
+            }
+            scopes.push_back(std::move(types));
+            const bool result=isBoolean(node.children[2]);
+            scopes.pop_back();
+            return result;
+        }
+        if(op=="ite") {
+            if(node.children.size()!=4)throw Unsupported("ite expects three arguments");
+            const bool a=isBoolean(node.children[2]),b=isBoolean(node.children[3]);
+            if(a!=b)throw Unsupported("ite branch sort mismatch");
+            return a;
+        }
         return op=="and"||op=="or"||op=="not"||op=="=>"||
-               op=="xor"||op=="ite"||op=="="||op=="distinct"||
+               op=="xor"||op=="="||op=="distinct"||
                op=="<"||op=="<="||op==">"||op==">=";
     }
     Linear blank() const {return {std::vector<Int>(static_cast<size_t>(nvars),0),0};}
-    void accumulate(Linear&dest,const Linear&source,Int scale=1) {
+    void widen(Linear&line) const {line.a.resize(static_cast<size_t>(nvars),0);}
+    Linear numeral(Int v) const {Linear out=blank();out.c=v;return out;}
+    Linear freshInteger() {
+        if(nvars>=32)throw Unsupported("QF_LIA supports up to 32 integer variables including auxiliaries");
+        const int index=nvars++;
+        for(Inequality&atom:atoms)atom.coefficients.push_back(0);
+        interned.clear(); // previously interned keys used fewer integer columns
+        Linear out=blank();
+        out.a[static_cast<size_t>(index)]=1;
+        return out;
+    }
+    void accumulate(Linear&dest,Linear source,Int scale=1) {
+        widen(dest);widen(source);
         for(int i=0;i<nvars;++i)dest.a[static_cast<size_t>(i)]=checkedAdd(
             dest.a[static_cast<size_t>(i)],checkedMultiply(scale,source.a[static_cast<size_t>(i)]));
         dest.c=checkedAdd(dest.c,checkedMultiply(scale,source.c));
     }
+    Inequality linearLessEqual(Linear x,Linear y,Int margin=0) {
+        accumulate(x,y,-1);
+        Inequality out;
+        out.coefficients=std::move(x.a);
+        out.rhs=checkedAdd(checkedNegate(x.c),margin);
+        return out;
+    }
+    int linearEquality(const Linear&x,const Linear&y,const std::string&reason) {
+        return combine(true,{
+            atom(linearLessEqual(x,y),reason+" [<=]"),
+            atom(linearLessEqual(y,x),reason+" [>=]")
+        });
+    }
+    void requireTheory(int literal) {cnf.clauses.push_back({literal});}
     Linear term(const Node&node) {
         if(!node.isList) {
+            if(const Binding*binding=bound(node.text)) {
+                if(binding->boolType)throw Unsupported("Expected Int, found Bool: "+node.text);
+                Linear out=binding->linear;
+                widen(out);
+                return out;
+            }
             Linear out=blank();
             const auto it=declared.find(node.text);
             if(it!=declared.end()){out.a[static_cast<size_t>(it->second)]=1;return out;}
@@ -185,6 +283,54 @@ private:
             catch(const std::invalid_argument&){throw Unsupported("Undeclared Int symbol "+node.text);}
         }
         const std::string op=head(node);const size_t count=node.children.size();
+        if(op=="let") {
+            scopes.push_back(evaluatedLet(node));
+            Linear result=term(node.children[2]);
+            scopes.pop_back();
+            widen(result);
+            return result;
+        }
+        if(op=="!") {
+            if(count<2)throw Unsupported("Annotation missing Int term");
+            return term(node.children[1]);
+        }
+        if(op=="ite") {
+            if(count!=4 || !isBoolean(node.children[1]))
+                throw Unsupported("ite requires a Boolean condition");
+            if(isBoolean(node.children[2])||isBoolean(node.children[3]))
+                throw Unsupported("Expected Int branches in arithmetic ite");
+            const int condition=boolean(node.children[1]);
+            Linear ifTrue=term(node.children[2]);
+            Linear ifFalse=term(node.children[3]);
+            Linear result=freshInteger();
+            const int trueEq=linearEquality(result,ifTrue,"ite-then");
+            const int falseEq=linearEquality(result,ifFalse,"ite-else");
+            cnf.clauses.push_back({-condition,trueEq});
+            cnf.clauses.push_back({condition,falseEq});
+            return result;
+        }
+        if(op=="div"||op=="mod") {
+            if(count!=3)throw Unsupported(op+" expects two Int terms");
+            Linear dividend=term(node.children[1]);
+            Linear divisor=term(node.children[2]);
+            widen(divisor);
+            const bool constant=std::all_of(divisor.a.begin(),divisor.a.end(),
+                                            [](Int value){return value==0;});
+            if(!constant)throw Unsupported("Variable divisors are outside native linear arithmetic");
+            const Int d=divisor.c;
+            if(d==0)throw Unsupported("Division by zero has underspecified SMT-LIB semantics");
+            const Int absD=d<0?checkedNegate(d):d;
+            Linear quotient=freshInteger();
+            Linear remainder=freshInteger();
+            Linear expanded=blank();
+            accumulate(expanded,quotient,d);
+            accumulate(expanded,remainder);
+            requireTheory(linearEquality(dividend,expanded,"Euclidean division identity"));
+            requireTheory(atom(linearLessEqual(numeral(0),remainder),"remainder >= 0"));
+            requireTheory(atom(linearLessEqual(remainder,numeral(absD-1)),
+                               "remainder < abs(divisor)"));
+            return op=="div"?quotient:remainder;
+        }
         if(op=="+") {
             Linear out=blank();
             for(size_t i=1;i<count;++i)accumulate(out,term(node.children[i]));
@@ -203,6 +349,7 @@ private:
             Linear out=blank();out.c=1;
             for(size_t i=1;i<count;++i) {
                 Linear other=term(node.children[i]);
+                widen(out);widen(other);
                 bool leftConstant=std::all_of(out.a.begin(),out.a.end(),[](Int v){return v==0;});
                 bool rightConstant=std::all_of(other.a.begin(),other.a.end(),[](Int v){return v==0;});
                 if(!leftConstant && !rightConstant)
@@ -219,13 +366,6 @@ private:
             return out;
         }
         throw Unsupported("Unsupported integer term "+op);
-    }
-    Inequality inequality(const Node&a,const Node&b,Int margin=0) {
-        Linear x=term(a),y=term(b);
-        accumulate(x,y,-1);
-        Inequality r;r.coefficients=x.a;
-        r.rhs=checkedAdd(checkedNegate(x.c),margin);
-        return r;
     }
     int atom(Inequality inequality,const std::string&description) {
         std::string key;
@@ -256,18 +396,19 @@ private:
         return v;
     }
     int comparison(const std::string&op,const Node&x,const Node&y){
+        // Evaluate each term ONCE. Integer ite, div, mod can emit fresh
+        // auxiliary arithmetic variables and guarded theory equalities.
+        // Re-evaluating a term for each equality direction duplicates them.
         const std::string phrase="("+op+" "+text(x)+" "+text(y)+")";
-        if(op=="<=")return atom(inequality(x,y),phrase);
-        if(op=="<")return atom(inequality(x,y,-1),phrase);
-        if(op==">=")return atom(inequality(y,x),phrase);
-        if(op==">")return atom(inequality(y,x,-1),phrase);
-        if(op=="=")return combine(true,{
-            atom(inequality(x,y),"(<= "+text(x)+" "+text(y)+")"),
-            atom(inequality(y,x),"(>= "+text(x)+" "+text(y)+")")
-        });
+        Linear left=term(x),right=term(y);
+        if(op=="<=")return atom(linearLessEqual(left,right),phrase);
+        if(op=="<")return atom(linearLessEqual(left,right,-1),phrase);
+        if(op==">=")return atom(linearLessEqual(right,left),phrase);
+        if(op==">")return atom(linearLessEqual(right,left,-1),phrase);
+        if(op=="=")return linearEquality(left,right,phrase);
         if(op=="distinct")return combine(false,{
-            atom(inequality(x,y,-1),"(< "+text(x)+" "+text(y)+")"),
-            atom(inequality(y,x,-1),"(> "+text(x)+" "+text(y)+")")
+            atom(linearLessEqual(left,right,-1),phrase+" [<]"),
+            atom(linearLessEqual(right,left,-1),phrase+" [>]")
         });
         throw Unsupported("Unsupported arithmetic relation");
     }
@@ -275,11 +416,21 @@ private:
         if(!node.isList){
             if(node.text=="true")return constant(true);
             if(node.text=="false")return constant(false);
+            if(const Binding*binding=bound(node.text)) {
+                if(!binding->boolType)throw Unsupported("Expected Bool, found Int: "+node.text);
+                return binding->booleanLiteral;
+            }
             auto it=declaredBoolean.find(node.text);
             if(it!=declaredBoolean.end())return it->second;
             throw Unsupported("Unsupported Boolean symbol: "+node.text);
         }
         const std::string op=head(node);const size_t n=node.children.size();
+        if(op=="let") {
+            scopes.push_back(evaluatedLet(node));
+            const int result=boolean(node.children[2]);
+            scopes.pop_back();
+            return result;
+        }
         if(op=="and"||op=="or") {
             std::vector<int> args;
             for(size_t i=1;i<n;++i)args.push_back(boolean(node.children[i]));
@@ -300,8 +451,9 @@ private:
         }
         if(op=="ite") {
             if(n!=4)throw Unsupported("Boolean ite expects three arguments");
-            if(!isBoolean(node.children[2])||!isBoolean(node.children[3]))
-                throw Unsupported("Arithmetic ite is not yet supported");
+            if(!isBoolean(node.children[1])||!isBoolean(node.children[2])||
+               !isBoolean(node.children[3]))
+                throw Unsupported("Boolean ite requires three Boolean arguments");
             const int condition=boolean(node.children[1]);
             return combine(false,{
                 combine(true,{condition,boolean(node.children[2])}),
@@ -417,7 +569,7 @@ Result solveFile(const std::string&path) {
             result.theoryBranches+=check.branches;
             if(check.state==ArithmeticResult::State::Sat) {
                 result.status=Status::Sat;
-                for(int i=0;i<builder.nvars;++i)result.model.emplace_back(
+                for(size_t i=0;i<builder.symbols.size();++i)result.model.emplace_back(
                     builder.symbols[static_cast<size_t>(i)],
                     printInt(check.model[static_cast<size_t>(i)]));
                 std::vector<int> assignments(static_cast<size_t>(builder.cnf.variableCount)+1,0);
