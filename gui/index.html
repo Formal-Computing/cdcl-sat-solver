@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDCL(T) Lab — Native QF_LIA & SAT Solver</title>
+<style>
+:root{--ink:#23384b;--muted:#728191;--edge:#dce5eb;--blue:#305b83;--teal:#007f83;--red:#c44850;--gold:#a57a23}
+*{box-sizing:border-box}body{margin:0;font:14px/1.52 system-ui,sans-serif;color:var(--ink);background:#f4f7f9}
+header{background:#18334f;color:white;padding:19px 26px;display:flex;justify-content:space-between;align-items:center}
+header h1{font:600 28px/1.1 Georgia,serif;margin:0 0 5px}header p{color:#b9c9d6;margin:0}
+.tag{font-size:12px;border-radius:99px;padding:8px 14px;border:1px solid #91a7b9}
+main{max-width:1640px;margin:auto;padding:18px}
+.panel{background:white;border:1px solid var(--edge);border-radius:11px;box-shadow:0 2px 4px #182e4412;min-width:0}
+.setup,.pane,.timeline{padding:17px}.setup{margin-bottom:15px}
+h2{margin:0 0 12px;font-size:15px}.setup-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.field{display:flex;flex-direction:column;gap:5px}label{font-size:12px;font-weight:650;color:#4d6070}
+select,button,textarea{font:inherit}select,button{padding:8px 11px;border:1px solid #cad7e1;border-radius:6px;background:white;color:var(--ink)}
+button{cursor:pointer;font-weight:600}button:hover{background:#edf4f8}button.primary{color:white;background:var(--blue);border-color:var(--blue)}
+button.primary:hover{background:#244868}button:disabled{opacity:.4;cursor:default}
+input[type=file]{font-size:12px;max-width:245px}input[type=range]{accent-color:var(--blue);flex:1;min-width:120px}
+details{margin-top:11px}summary{cursor:pointer;color:var(--blue);font-weight:600}
+textarea{display:block;margin-top:8px;min-height:115px;width:100%;padding:10px;border:1px solid var(--edge);border-radius:5px;font:12px/1.45 Consolas,monospace}
+#notice{font-size:12px;color:var(--muted);margin-left:auto}
+.workspace{display:grid;grid-template-columns:minmax(250px,1fr) minmax(450px,2.15fr) minmax(235px,.95fr);gap:15px}
+.pane{min-height:420px}.pane-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px solid var(--edge);margin-bottom:11px;padding-bottom:8px}
+.pane-head h2{margin:0}.small{font-size:11px;color:var(--muted)}
+#clauses{max-height:490px;overflow-y:auto}.clause{display:flex;align-items:center;gap:8px;border:1px solid #e1eaf1;border-radius:6px;margin:6px 0;padding:8px}
+.clause .num{color:#748394;font-weight:750;font-size:11px;min-width:29px}
+.clause .expr{flex:1;font:15px/1.4 Georgia,serif;overflow-wrap:anywhere}
+.clause .flag{font-size:10px;font-weight:700}.clause.true{background:#eef9f5;border-color:#c9e5d8}.clause.true .flag{color:#167b56}
+.clause.false{background:#fff0ef;border-color:#f0c3c0}.clause.false .flag{color:var(--red)}
+.clause.open{background:#fffaf0;border-color:#f1e4c8}.clause.open .flag{color:var(--gold)}
+.clause.focus{outline:2px solid #6285a7;outline-offset:-2px}.clause.learned{border-left:4px solid var(--gold)}
+.graphbox{height:min(55vh,610px);min-height:365px;overflow:auto;border:1px solid #e4ebef;border-radius:7px;background:#fbfdff;cursor:grab;overscroll-behavior:contain}
+.graphbox.dragging{cursor:grabbing;user-select:none}
+.literal-node{cursor:pointer;outline:none}.literal-node:hover rect,.literal-node:focus-visible rect{stroke:#172f46;stroke-width:3}
+.literal-button{padding:1px 3px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.literal-button:hover,.literal-button:focus-visible,.literal-button.selected{color:#175a8d;background:#dcecf8;outline:1px solid #759dbb}
+.clause.contains-selected{box-shadow:inset 0 0 0 2px #2d6595}
+.literal-inspector{margin:12px 0;padding:11px;background:#f4f8fc;border:1px solid #dae6ee;border-radius:6px;min-height:74px;font-size:12px}
+.literal-inspector strong{font-size:13px}.literal-inspector code{white-space:pre-wrap}
+.bench-status{font-size:12px;max-width:100%;overflow-wrap:anywhere}
+.smt-results{font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;max-height:210px;overflow:auto;padding:12px;border:1px solid #dae6ee;border-radius:6px;background:#f7fbfc}
+.benchmark-panel{margin-bottom:15px}.benchmark-panel .setup-row{margin:8px 0}
+.graph-tools{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.graph-tools button{padding:4px 8px;font-size:12px}.graph-tools button[aria-pressed=true]{background:#d7edf1;border-color:#007f83}
+.graph-tools .small{min-width:35px;text-align:center}
+#graph{display:block;min-width:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:11px}
+.dot{width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:5px}
+#kind{color:var(--blue);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+#explanation{font-size:14px;padding:12px 0;border-bottom:1px solid var(--edge);min-height:78px}
+.stats{display:flex;gap:8px;margin:12px 0}.stat{border:1px solid var(--edge);border-radius:6px;padding:8px 12px;flex:1}
+.stat strong{display:block;font-size:21px}.stat span{font-size:11px;color:var(--muted)}
+#trail{max-height:195px;overflow-y:auto;font:12px Consolas,monospace}
+.trail{display:flex;justify-content:space-between;padding:5px;border-bottom:1px solid #edf1f4}.trail .why{color:var(--muted)}
+.timeline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 15px;position:sticky;top:8px;z-index:10;box-shadow:0 5px 18px #182e4420}
+#counter{font-weight:700;min-width:95px;text-align:right}
+.footer{font-size:12px;color:var(--muted);margin:12px 4px}
+@media(max-width:1150px){.workspace{grid-template-columns:1fr 1.6fr}.right{grid-column:span 2}}
+@media(max-width:680px){header{padding:16px}header .tag{display:none}main{padding:8px}.workspace{grid-template-columns:1fr}.right{grid-column:auto}.graphbox{height:320px}}
+</style>
+</head>
+<body>
+<header><div><h1>CDCL(T) · Integer Arithmetic</h1>
+<p>Native C++ QF_LIA theory engine · CDCL Boolean reasoning · interactive theory conflicts</p></div>
+<span class="tag">Formal Computing / CDCL(T)</span></header>
+<main>
+<section class="panel setup">
+<h2>Select a DIMACS CNF formula</h2>
+<div class="setup-row">
+<div class="field"><label for="examples">Included examples</label><select id="examples"></select></div>
+<button id="load">Load example</button>
+<div class="field"><label for="file">Or open your .cnf file</label><input type="file" id="file" accept=".cnf,.txt"></div>
+<button class="primary" id="run">Run C++ solver</button><span id="notice" role="status"></span>
+</div>
+<details><summary>Edit / view DIMACS text</summary><textarea id="source" spellcheck="false"></textarea></details>
+</section>
+<details class="panel setup" style="margin-bottom:15px">
+<summary>Native QF_LIA · SMT-LIB 2 solver</summary>
+<p class="small">The native C++ CDCL(T) backend solves supported quantifier-free linear integer formulas and learns conflicts from integer arithmetic. Z3 remains an independent cross-check, not the implementation.</p>
+<div class="setup-row"><div class="field"><label for="theory-examples">QF_LIA teaching examples</label>
+<select id="theory-examples"></select></div><button id="preview-theory">Load QF_LIA example</button><span class="small" id="theory-note"></span></div>
+<textarea id="theory-source" spellcheck="false" aria-label="SMT-LIB example source editor" style="min-height:185px"></textarea>
+<div class="setup-row">
+<div class="field"><label for="smt-upload">Or open any local SMT-LIB file</label>
+<input type="file" id="smt-upload" accept=".smt2,.smt,.txt"></div>
+<button id="solve-smt" class="primary" type="button">Solve with native C++ QF_LIA</button>
+<button id="solve-smt-reference" type="button">Cross-check with Z3</button>
+<button id="cancel-smt" type="button" disabled>Stop solving</button>
+<span class="small" id="smt-run-status">Native C++ QF_LIA engine ready · no fixed solving time cap</span></div>
+<pre id="smt-result" class="smt-results" role="status">Load the three-literal QF_LIA example and run the native C++ solver.</pre>
+<p class="small">Sources: <a href="https://courses.cs.washington.edu/courses/csep590b/26sp/lecture/l04/02-theory/" target="_blank" rel="noopener noreferrer">UW CARS</a> · <a href="https://conferences.mpi-inf.mpg.de/rg1/vtsa17/slides/reynolds-vtsa-part1.pdf" target="_blank" rel="noopener noreferrer">Reynolds VTSA slides</a></p>
+</details>
+<section class="panel setup" id="qflia-graph-panel" aria-label="Interactive native QF_LIA theory conflict">
+<div class="pane-head"><h2>Native arithmetic atoms and theory-conflict graph</h2>
+<span id="qflia-verdict" class="small">Select a QF_LIA formula above</span></div>
+<div id="qflia-stats" class="small">The graph is produced from C++ CDCL(T) theory atoms and learned conflicts.</div>
+<div id="qflia-graph-scroll" style="overflow:auto;border:1px solid #dce5eb;border-radius:9px;margin-top:12px;background:#fbfdff;min-height:185px">
+<svg id="qflia-graph" viewBox="0 0 960 185" width="100%" height="185" role="img"
+aria-label="Clickable integer arithmetic atoms and learned theory conflict">
+<text x="480" y="85" fill="#728191" text-anchor="middle" font-size="14">Run the native QF_LIA engine to inspect arithmetic atoms.</text>
+</svg></div>
+<div class="literal-inspector" id="qflia-atom-detail" role="status">
+Click a theory literal (L1, L2, L3…) to inspect the exact inequality and whether it participates in the learned theory conflict.
+</div>
+<p class="small">Nodes show theory predicates and one recorded conflicting assignment, not internal simplex steps. The native engine returns UNKNOWN if its supported fragment or resource limits are exceeded.</p>
+</section>
+<section class="panel setup benchmark-panel" aria-label="SMT-COMP 2020 benchmark picker">
+<h2>SMT-COMP 2020 · on-demand benchmark explorer</h2>
+<p class="small">Browse QF_LIA problems from the official 89,924-entry single-query selection index. Only entries marked downloadable can be fetched individually from a later SMT-LIB mirror; original 2020 bytes are not guaranteed.</p>
+<div class="setup-row">
+<div class="field"><label for="bench-source">Catalog</label><select id="bench-source"><option value="2020">SMT-COMP 2020 selected</option><option value="mirror">Downloadable SMT-LIB 2025 sample</option></select></div>
+<div class="field"><label for="bench-logic">Logic</label><select id="bench-logic"><option value="QF_LIA">QF_LIA</option></select></div>
+<div class="field"><label for="bench-search">Search filename or family</label><input id="bench-search" placeholder="e.g. qlock, sudoku, lia" style="padding:8px;border:1px solid #cad7e1;border-radius:6px"></div>
+<label><input type="checkbox" id="bench-ready" checked> Individually downloadable only</label>
+</div>
+<div class="setup-row"><div class="field" style="flex:1;min-width:265px"><label for="bench-list">Benchmarks (first 80 matches)</label><select id="bench-list" style="width:100%;min-width:0"></select></div>
+<button id="bench-load" class="primary" type="button">Fetch selected .smt2</button>
+<span id="bench-status" class="bench-status" role="status">Loading QF_LIA catalog…</span></div>
+<p class="small">On fetch: server uses an indexed HTTPS curl URL, stores only the chosen file, and reports its SHA-256. Historical items without a confirmed mirror remain viewable in the catalog but cannot be downloaded automatically.</p>
+</section>
+<section class="panel timeline">
+<button id="reset">Reset</button><button id="prev">← Previous</button>
+<button class="primary" id="next">Next →</button><button id="play">Play</button>
+<input type="range" id="seek" min="0" max="0" value="0" aria-label="Event timeline"><span id="counter">0 / 0</span>
+</section>
+<div class="workspace">
+<section class="panel pane">
+<div class="pane-head"><h2>CNF clauses</h2><span id="formula-info" class="small">No formula</span></div>
+<div id="clauses"></div>
+<div class="legend"><span><i class="dot" style="background:#167b56"></i>Satisfied</span><span><i class="dot" style="background:#a57a23"></i>Open</span><span><i class="dot" style="background:#c44850"></i>False</span></div>
+</section>
+<section class="panel pane">
+<div class="pane-head"><h2>Implication graph · live</h2>
+<div class="graph-tools" role="group" aria-label="Graph navigation">
+<button id="zoomout" type="button" aria-label="Zoom out">−</button><span id="zoom-label" class="small">100%</span><button id="zoomin" type="button" aria-label="Zoom in">+</button>
+<button id="fit" type="button">Fit</button><button id="live" type="button" aria-pressed="true">Follow live</button></div></div>
+<div class="graphbox" id="graphbox" aria-label="Pan and scroll implication graph"><svg id="graph" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Implication graph of assigned Boolean variables"></svg></div>
+<div class="legend"><span><i class="dot" style="background:#305b83"></i>Decision</span><span><i class="dot" style="background:#007f83"></i>BCP</span><span><i class="dot" style="background:#c44850"></i>Conflict</span><span><i class="dot" style="background:#a57a23"></i>Learned clause</span></div>
+</section>
+<section class="panel pane right">
+<div class="pane-head"><h2>Step explanation</h2><span class="small" id="verdict">Waiting</span></div>
+<div id="kind">Ready</div><div id="explanation">Run the C++ solver, then select any event using the controls below.</div>
+<div class="stats"><div class="stat"><strong id="level">—</strong><span>Decision level</span></div><div class="stat"><strong id="assigned">—</strong><span>Assigned variables</span></div><div class="stat"><strong id="elapsed">—</strong><span id="elapsed-label">C++ run time</span></div></div>
+<h2>Selected literal</h2><div class="literal-inspector" id="literal-inspector" role="status">Click any graph node or a literal in a clause to inspect its assignment and dependencies.</div>
+<h2>Assignment trail</h2><div id="trail">No assignments.</div>
+</section>
+</div>
+
+<p class="footer">This GUI replays the actual C++ solver's events, not a separately implemented Python solver. A consistent BCP fixed point is not necessarily SAT unless all clauses are satisfied.</p>
+</main>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const NS="http://www.w3.org/2000/svg";
+const colors={decision:"#305b83",propagate:"#007f83",conflict:"#c44850",learn:"#a57a23"};
+let result=null,step=0,playTimer=null,solveTimer=null,graphZoom=1,followLive=true;
+let drawQueued=false,selectedLiteral=null;
+function symbol(lit){return (lit<0?"¬":"")+"x"+Math.abs(lit)}
+function clauseText(c){return c.length?"("+c.map(symbol).join(" ∨ ")+")":"⊥"}
+function svg(name,props,parent){const n=document.createElementNS(NS,name);for(const [k,v] of Object.entries(props||{}))n.setAttribute(k,v);if(parent)parent.appendChild(n);return n}
+function txt(g,x,y,s,color,size){const n=svg("text",{x:x,y:y,fill:color||"#23384b","font-family":"system-ui,sans-serif","font-size":size||13,"text-anchor":"middle","font-weight":600},g);n.textContent=s;return n}
+function edge(g,a,b,color,dash){
+ const sameRow=Math.abs(a.y-b.y)<30;
+ const path=sameRow?
+  "M"+(a.x+57)+" "+a.y+" C"+(a.x+83)+" "+a.y+","+(b.x-83)+" "+b.y+","+(b.x-61)+" "+b.y:
+  "M"+a.x+" "+(a.y+27)+" C"+a.x+" "+(a.y+65)+","+b.x+" "+(b.y-65)+","+b.x+" "+(b.y-28);
+ svg("path",{d:path,fill:"none",stroke:color,"stroke-width":2,"stroke-dasharray":dash?"5 5":"none","marker-end":color===colors.conflict?"url(#arrow-conflict)":dash?"url(#arrow-propagate)":"url(#arrow-decision)"},g);
+}
+function clauseAt(i){return result.clauses.concat(result.events.slice(0,i+1).filter(e=>e.type==="learn").map(e=>e.learned))}
+function values(trail){const m=new Map();trail.forEach(t=>m.set(Math.abs(t.literal),t.literal>0));return m}
+function state(clause,v){let unknown=false;for(const lit of clause){const n=Math.abs(lit);if(!v.has(n))unknown=true;else if(v.get(n)===(lit>0))return "true"}return unknown?"open":"false"}
+function drawClauses(e,clauses){
+ const box=el("clauses");box.replaceChildren();const v=values(e.trail);
+ clauses.forEach((c,i)=>{
+  const flag=state(c,v),row=document.createElement("div");row.className="clause "+flag+(i>=result.clauses.length?" learned":"")+(e.clause===i?" focus":"");
+  const n=document.createElement("span");n.className="num";n.textContent=(i>=result.clauses.length?"L"+(i-result.clauses.length+1):"C"+(i+1));
+  const f=document.createElement("span");f.className="expr";
+  if(c.length){
+   f.append(document.createTextNode("("));
+   c.forEach((lit,j)=>{
+    if(j)f.append(document.createTextNode(" ∨ "));
+    const button=document.createElement("button");
+    button.type="button";button.className="literal-button"+(selectedLiteral!==null&&Math.abs(lit)===selectedLiteral?" selected":"");
+    button.textContent=symbol(lit);button.dataset.lit=String(lit);
+    button.setAttribute("aria-label","Inspect "+symbol(lit));
+    f.append(button);
+   });f.append(document.createTextNode(")"));
+  }else f.textContent="⊥";
+  if(selectedLiteral!==null&&c.some(lit=>Math.abs(lit)===selectedLiteral))row.classList.add("contains-selected");
+  const r=document.createElement("span");r.className="flag";r.textContent=flag.toUpperCase();
+  row.append(n,f,r);box.appendChild(row);
+ });
+ el("formula-info").textContent=result.variables+" vars · "+clauses.length+" clauses";
+}
+function drawGraph(e,clauses){
+ const g=el("graph");g.replaceChildren();
+ const defs=svg("defs",{},g);
+ Object.entries(colors).forEach(([key,color])=>{
+  const marker=svg("marker",{id:"arrow-"+key,markerWidth:7,markerHeight:7,refX:6,refY:3,orient:"auto"},defs);
+  svg("path",{d:"M0 0 L7 3 L0 6 Z",fill:color},marker);
+ });
+ const byLevel=new Map(),pos=new Map();let maxLevel=e.level;
+ e.trail.forEach(t=>{
+  const i=byLevel.get(t.level)||0;byLevel.set(t.level,i+1);
+  pos.set(Math.abs(t.literal),{x:92+i*155,y:94+t.level*115,t:t});
+  maxLevel=Math.max(maxLevel,t.level);
+ });
+ const farthest=Math.max(0,...Array.from(pos.values(),p=>p.x));
+ const width=Math.max(740,farthest+230),height=Math.max(360,maxLevel*115+215);
+ g.setAttribute("width",Math.round(width*graphZoom));g.setAttribute("height",Math.round(height*graphZoom));
+ g.setAttribute("viewBox","0 0 "+width+" "+height);
+ for(let level=0;level<=maxLevel;level++){
+  const y=94+level*115;
+  svg("line",{x1:15,y1:y+43,x2:width-12,y2:y+43,stroke:"#dce6ed","stroke-dasharray":"4 6"},g);
+  txt(g,55,y-44,"LEVEL "+level,"#758594",10);
+ }
+ e.trail.forEach(t=>{
+  const node=pos.get(Math.abs(t.literal));
+  if(t.reason!==null){
+   const reason=clauses[t.reason]||[],seen=new Set();
+   reason.forEach(lit=>{const v=Math.abs(lit);if(v===Math.abs(t.literal)||seen.has(v))return;seen.add(v);
+    if(pos.has(v))edge(g,pos.get(v),node,(selectedLiteral!==null&&(v===selectedLiteral||Math.abs(t.literal)===selectedLiteral))?"#d47b15":colors.propagate,true)});
+  }
+ });
+ e.trail.forEach(t=>{
+  const a=pos.get(Math.abs(t.literal)),prop=t.reason!==null,current=e.literal===t.literal&&(e.type==="decision"||e.type==="propagate");
+  const selected=selectedLiteral===Math.abs(t.literal);
+  const node=svg("g",{"class":"literal-node","data-lit":String(t.literal),"role":"button","tabindex":"0",
+      "aria-label":"Inspect x"+Math.abs(t.literal)+" at decision level "+t.level},g);
+  svg("rect",{x:a.x-56,y:a.y-26,width:112,height:52,rx:9,
+      fill:selected?"#fff0d8":prop?"#e8f7f6":"#eaf1f8",
+      stroke:selected?"#d47b15":prop?colors.propagate:colors.decision,
+      "stroke-width":selected?3.8:current?3:1.5},node);
+  txt(node,a.x,a.y,"x"+Math.abs(t.literal)+" = "+(t.literal>0?"T":"F"),
+      selected?"#98540a":prop?colors.propagate:colors.decision,13);
+  txt(node,a.x,a.y+18,prop?"BCP · C"+(t.reason+1):"Decision","#738292",10);
+ });
+ if(e.type==="conflict"&&e.clause!==null){
+  const x=farthest+158,y=94+maxLevel*115,reason=clauses[e.clause]||[];
+  reason.forEach(lit=>{if(pos.has(Math.abs(lit)))edge(g,pos.get(Math.abs(lit)),{x:x-60,y:y},colors.conflict,true)});
+  svg("rect",{x:x-61,y:y-25,width:122,height:50,rx:8,fill:"#ffeaea",stroke:colors.conflict,"stroke-width":2.5},g);
+  txt(g,x,y-2,"CONFLICT",colors.conflict,13);txt(g,x,y+16,"Clause "+(e.clause+1),colors.conflict,10);
+ }
+ if(e.type==="learn"&&e.learned.length){
+  const x=width/2,y=height-38;
+  svg("rect",{x:x-160,y:y-21,width:320,height:40,rx:9,fill:"#fff3da",stroke:colors.learn,"stroke-width":2},g);
+  txt(g,x,y+5,"LEARN "+e.learned.map(symbol).join(" ∨ "),colors.learn,13);
+ }
+ if(!e.trail.length)txt(g,width/2,height/2,"No assignments yet","#8496a6",15);
+}
+function stop(){if(playTimer!==null){clearInterval(playTimer);playTimer=null}el("play").textContent="Play"}
+function setFollow(value){
+ followLive=value;el("live").setAttribute("aria-pressed",String(value));
+ if(value&&result&&result.events.length){step=result.events.length-1;scheduleRender()}
+}
+function scheduleRender(){
+ if(drawQueued)return;
+ drawQueued=true;
+ requestAnimationFrame(()=>{
+  drawQueued=false;
+  if(result&&result.events.length){
+   render();
+   if(followLive){const box=el("graphbox");box.scrollTop=box.scrollHeight}
+  }
+ });
+}
+function updateZoom(value){
+ graphZoom=Math.min(2.8,Math.max(.2,value));
+ el("zoom-label").textContent=Math.round(graphZoom*100)+"%";
+ scheduleRender();
+}
+function fitGraph(){
+ const width=el("graph").viewBox.baseVal.width;
+ if(width)updateZoom((el("graphbox").clientWidth-20)/width);
+}
+function selectLiteral(lit){
+ selectedLiteral=Math.abs(Number(lit));
+ if(!Number.isInteger(selectedLiteral)||selectedLiteral<1)return;
+ if(result&&result.events.length)scheduleRender();
+}
+function inspectLiteral(event,clauses){
+ const box=el("literal-inspector");
+ if(selectedLiteral===null){box.textContent="Click any graph node or clause literal to inspect it.";return}
+ const v=selectedLiteral;
+ const current=event.trail.find(t=>Math.abs(t.literal)===v);
+ const occurrences=clauses.flatMap((c,i)=>c.some(l=>Math.abs(l)===v)?[i+1]:[]);
+ box.replaceChildren();
+ const heading=document.createElement("strong");
+ heading.textContent="x"+v+" · "+(current?(current.literal>0?"TRUE":"FALSE"):"UNASSIGNED");
+ box.append(heading);
+ const p=document.createElement("div");
+ p.textContent=current?"Decision level "+current.level+" · "+(current.reason===null?"free decision":"propagated via clause C"+(current.reason+1)):
+                       "Not yet assigned at this replay event";
+ box.append(p);
+ if(current&&current.reason!==null){
+  const reason=clauses[current.reason]||[];
+  const detail=document.createElement("div");
+  detail.textContent="Reason: "+clauseText(reason)+" · antecedents "+(reason.filter(l=>Math.abs(l)!==v).map(l=>symbol(l)).join(", ")||"none");
+  box.append(detail);
+ }
+ const affects=event.trail.filter(t=>t.reason!==null&&t.literal!==current?.literal
+                   &&(clauses[t.reason]||[]).some(l=>Math.abs(l)===v));
+ if(affects.length){const next=document.createElement("div");
+  next.textContent="Direct consequences: "+affects.map(t=>symbol(t.literal)).join(", ");box.append(next)}
+ const occurrencesNode=document.createElement("div");
+ occurrencesNode.textContent="Appears in "+occurrences.length+" clause(s): "+
+                            occurrences.slice(0,18).map(i=>"C"+i).join(", ")+(occurrences.length>18?"…":"");
+ box.append(occurrencesNode);
+}
+el("clauses").addEventListener("click",e=>{
+ const target=e.target.closest("button[data-lit]");
+ if(target)selectLiteral(target.dataset.lit);
+});
+el("graph").addEventListener("click",e=>{
+ const node=e.target.closest(".literal-node");
+ if(node)selectLiteral(node.dataset.lit);
+});
+el("graph").addEventListener("keydown",e=>{
+ const node=e.target.closest(".literal-node");
+ if(node&&(e.key==="Enter"||e.key===" ")){e.preventDefault();selectLiteral(node.dataset.lit)}
+});
+function render(){
+ if(!result)return;
+ step=Math.max(0,Math.min(step,result.events.length-1));
+ const e=result.events[step],clauses=clauseAt(step);drawClauses(e,clauses);drawGraph(e,clauses);
+ inspectLiteral(e,clauses);
+ el("kind").textContent=e.type.toUpperCase();el("explanation").textContent=e.detail;
+ el("level").textContent=e.level;el("assigned").textContent=e.trail.length+" / "+result.variables;
+ el("counter").textContent=(step+1)+" / "+result.events.length;
+ el("seek").max=result.events.length-1;el("seek").value=step;
+ el("prev").disabled=step===0;el("next").disabled=step===result.events.length-1;
+ el("verdict").textContent=step===result.events.length-1?result.status:"REPLAY";
+ el("verdict").style.color=step===result.events.length-1?(result.status==="SAT"?"#167b56":colors.conflict):"#728191";
+ const trail=el("trail");trail.replaceChildren();
+ e.trail.forEach(t=>{const row=document.createElement("div");row.className="trail";
+  const left=document.createElement("span");left.textContent=(t.literal>0?"T ":"F ")+"x"+Math.abs(t.literal)+" · L"+t.level;
+  const right=document.createElement("span");right.className="why";right.textContent=t.reason===null?"decision":"clause C"+(t.reason+1);
+  row.append(left,right);trail.append(row);
+ });if(!e.trail.length)trail.textContent="No assignments.";
+}
+function notice(text){el("notice").textContent=text}
+function duration(seconds){
+ if(seconds>=3600){const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60);return h+"h "+m+"m "+(seconds%60).toFixed(1)+"s"}
+ if(seconds>=60){return Math.floor(seconds/60)+"m "+(seconds%60).toFixed(1).padStart(5,"0")+"s"}
+ return seconds.toFixed(3)+"s";
+}
+async function loadExample(){
+ stop();const name=el("examples").value;
+ const r=await fetch("/api/example?name="+encodeURIComponent(name)),body=await r.json();
+ if(!r.ok)throw new Error(body.error);
+ el("source").value=body.cnf;notice(name+" loaded");
+}
+async function solve(){
+ stop();setFollow(true);selectedLiteral=null;
+ if(solveTimer!==null){clearInterval(solveTimer);solveTimer=null}
+ el("run").disabled=true;
+ el("elapsed-label").textContent="Elapsed · running";
+ const started=performance.now();
+ const tick=()=>{
+  const elapsed=(performance.now()-started)/1000;
+  el("elapsed").textContent=duration(elapsed);
+  notice("C++ solving live… "+duration(elapsed)+" (no time limit)");
+ };
+ tick();solveTimer=setInterval(tick,100);
+ try{
+  const r=await fetch("/api/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cnf:el("source").value})});
+  if(!r.ok){let body={};try{body=await r.json()}catch{}throw new Error(body.error||"Solver failed")}
+  if(!r.body)throw new Error("This browser does not support streamed responses");
+  const reader=r.body.getReader(),decoder=new TextDecoder();let buffer="",completed=false;
+  function onFrame(frame){
+   if(frame.kind==="header"){
+    result={algorithm:frame.algorithm,variables:frame.variables,clauses:frame.clauses,events:[],model:[],stats:{learned:0},status:"RUNNING"};
+    step=0;el("clauses").replaceChildren();el("graph").replaceChildren();
+   }else if(frame.kind==="event"){
+    if(!result)throw new Error("Missing C++ trace header");
+    result.events.push(frame.event);
+    if(followLive)step=result.events.length-1;
+    scheduleRender();
+   }else if(frame.kind==="complete"){
+    if(!result)throw new Error("Missing C++ trace header");
+    result.status=frame.status;result.model=frame.model;result.stats=frame.stats;completed=true;
+    scheduleRender();
+   }else if(frame.kind==="timing"){
+    if(solveTimer!==null){clearInterval(solveTimer);solveTimer=null}
+    el("elapsed").textContent=duration(frame.elapsed_seconds);
+    el("elapsed-label").textContent="C++ process · final";
+    notice(result.status+" · "+duration(frame.elapsed_seconds)+" · "+result.events.length+" events · "+result.stats.learned+" learned");
+   }else if(frame.kind==="error"){throw new Error(frame.error)}
+  }
+  while(true){
+   const {value,done}=await reader.read();
+   if(done)break;
+   buffer+=decoder.decode(value,{stream:true});
+   let newline;
+   while((newline=buffer.indexOf("\n"))>=0){
+    const line=buffer.slice(0,newline);buffer=buffer.slice(newline+1);
+    if(line.trim())onFrame(JSON.parse(line));
+   }
+  }
+  buffer+=decoder.decode();
+  if(buffer.trim())onFrame(JSON.parse(buffer));
+  if(!completed)throw new Error("Solver stream ended without a final SAT/UNSAT verdict");
+ }catch(e){
+  el("elapsed-label").textContent="Elapsed · failed";
+  notice("Error after "+duration((performance.now()-started)/1000)+": "+e.message);
+ }finally{
+  if(solveTimer!==null){clearInterval(solveTimer);solveTimer=null}
+  el("run").disabled=false;scheduleRender();
+ }
+}
+async function previewTheory(){
+ const name=el("theory-examples").value;
+ const r=await fetch("/api/theory-example?name="+encodeURIComponent(name));
+ const data=await r.json();if(!r.ok)throw new Error(data.error||"Theory example unavailable");
+ el("theory-source").value=data.source;
+ el("theory-note").textContent="Ready for native C++ QF_LIA execution";
+}
+el("preview-theory").onclick=()=>previewTheory().catch(e=>notice(e.message));
+
+let catalogRows=[],searchTimer=null;
+function benchmarkStatus(value){el("bench-status").textContent=value}
+async function refreshCatalog(){
+ const source=el("bench-source").value,logic="QF_LIA",q=el("bench-search").value;
+ const qs=new URLSearchParams({source,logic,q,limit:"80",ready_only:el("bench-ready").checked?"1":"0"});
+ const response=await fetch("/api/benchmark-catalog?"+qs),data=await response.json();
+ if(!response.ok)throw new Error(data.error||"Catalog unavailable");
+ const logicSelect=el("bench-logic");
+ const previous="QF_LIA", options=["QF_LIA"];
+ if(logicSelect.options.length!==options.length||
+    options.some((value,i)=>logicSelect.options[i].value!==value)){
+   logicSelect.replaceChildren();
+   options.forEach(value=>{const option=document.createElement("option");option.value=value;
+     option.textContent=value||"All logics";logicSelect.append(option)});
+   logicSelect.value=options.includes(previous)?previous:"";
+   // If logic was invalid for the changed source, fetch again.
+   if(previous&&logicSelect.value!==previous){await refreshCatalog();return}
+ }
+ catalogRows=data.entries;
+ const list=el("bench-list");list.replaceChildren();
+ data.entries.forEach((item,i)=>{
+  const option=document.createElement("option");option.value=String(i);
+  option.textContent=(item.ready?"↓ ":"— ")+item.logic+" / "+item.path.split("/").slice(2).join("/");
+  option.title=item.path;list.append(option);
+ });
+ if(data.entries.length)list.value="0";
+ el("bench-load").disabled=!data.entries.length||!data.entries[0].ready;
+ benchmarkStatus(data.count.toLocaleString()+" matches • "+data.downloadable+" downloadable in "+
+      data.total.toLocaleString()+" total • showing "+data.entries.length);
+}
+el("bench-source").onchange=()=>refreshCatalog().catch(e=>benchmarkStatus(e.message));
+el("bench-logic").onchange=()=>refreshCatalog().catch(e=>benchmarkStatus(e.message));
+el("bench-ready").onchange=()=>refreshCatalog().catch(e=>benchmarkStatus(e.message));
+el("bench-search").addEventListener("input",()=>{
+ if(searchTimer!==null)clearTimeout(searchTimer);
+ searchTimer=setTimeout(()=>refreshCatalog().catch(e=>benchmarkStatus(e.message)),250);
+});
+el("bench-list").onchange=()=>{
+ const item=catalogRows[Number(el("bench-list").value)];
+ el("bench-load").disabled=!item||!item.ready;
+};
+el("bench-load").onclick=async()=>{
+ const item=catalogRows[Number(el("bench-list").value)];
+ if(!item)return;
+ if(!item.ready){benchmarkStatus("No verified per-file download for this historical entry");return}
+ el("bench-load").disabled=true;benchmarkStatus("Fetching one file securely using curl…");
+ try{
+  const response=await fetch("/api/benchmark?id="+encodeURIComponent(item.id)),data=await response.json();
+  if(!response.ok)throw new Error(data.error||"Download failed");
+  el("theory-source").value=data.source;
+  document.querySelector("#theory-source").closest("details").open=true;
+  el("smt-result").textContent=data.metadata.path+"\\nSHA-256: "+data.sha256+
+     "\\n"+data.bytes.toLocaleString()+" bytes · "+(data.cached?"local cache":"fetched from remote")+
+     "\\n"+data.warning;
+  benchmarkStatus("Loaded "+data.metadata.name+" ("+data.bytes.toLocaleString()+" bytes)");
+  el("smt-run-status").textContent="Ready for native C++ QF_LIA solving";
+ }catch(error){benchmarkStatus("Unable to fetch: "+error.message)}
+ finally{el("bench-load").disabled=false}
+};
+el("smt-upload").onchange=async function(){
+ const file=this.files[0];if(!file)return;
+ if(file.size>2097152){el("smt-run-status").textContent="File exceeds 2 MiB";return}
+ el("theory-source").value=await file.text();
+ document.querySelector("#theory-source").closest("details").open=true;
+ el("smt-run-status").textContent=file.name+" loaded · native C++ QF_LIA available";
+ el("smt-result").textContent="Local input "+file.name+" ("+file.size.toLocaleString()+" bytes).";
+};
+let smtRunId=null,smtCancelled=false;
+let nativeResult=null,selectedNativeAtom=null;
+function showNativeAtom(index){
+ if(!nativeResult||!Number.isInteger(index)||index<0||index>=nativeResult.atoms.length)return;
+ selectedNativeAtom=index;
+ drawNativeGraph(nativeResult);
+ const inConflict=nativeResult.conflict_atoms.includes(index);
+ const inspector=el("qflia-atom-detail");inspector.replaceChildren();
+ const heading=document.createElement("strong");
+ heading.textContent="L"+(index+1)+" · "+nativeResult.atoms[index];inspector.append(heading);
+ const detail=document.createElement("p");
+ detail.textContent=inConflict?
+  "This theory atom contributed to an actual integer-infeasible assignment and appears in a learned CDCL(T) theory-conflict clause.":
+  "This arithmetic predicate is part of the Boolean abstraction. It was not needed in the displayed theory-conflict explanation.";
+ inspector.append(detail);
+}
+function drawNativeGraph(data){
+ const graph=el("qflia-graph");graph.replaceChildren();
+ const atoms=(data.atoms||[]).slice(0,48),core=new Set(data.conflict_atoms||[]);
+ const cols=Math.min(4,Math.max(atoms.length,1)),rows=Math.ceil(atoms.length/cols);
+ const w=960,h=Math.max(185,rows*105+95+(core.size?80:0));
+ graph.setAttribute("viewBox","0 0 "+w+" "+h);
+ graph.style.height=h+"px";
+ graph.style.minWidth="780px";
+ const positions=[];
+ atoms.forEach((expression,index)=>{
+  const col=index%cols,row=Math.floor(index/cols);
+  const x=(col+.5)*(w/cols),y=62+row*105;
+  positions.push({x,y,index,expression});
+ });
+ if(core.size){
+  const goalX=w/2,goalY=h-54;
+  for(const position of positions)if(core.has(position.index)){
+   const path=svg("path",{d:"M "+position.x+" "+(position.y+30)+
+      " C "+position.x+" "+(position.y+65)+", "+goalX+" "+(goalY-64)+
+      ", "+goalX+" "+(goalY-30),stroke:"#bb4e57","stroke-width":2,
+      fill:"none","stroke-dasharray":"5 4"},graph);
+  }
+  svg("rect",{x:goalX-116,y:goalY-24,width:232,height:52,rx:10,
+     fill:"#fce5e6",stroke:"#bb4e57","stroke-width":2},graph);
+  txt(graph,goalX,goalY+6,"THEORY CONFLICT","#a33840",14);
+ }
+ positions.forEach(({x,y,index,expression})=>{
+  const selected=selectedNativeAtom===index,inConflict=core.has(index);
+  const group=svg("g",{"data-atom":index,role:"button",tabindex:0,
+    "aria-label":"Inspect theory atom "+(index+1)},graph);
+  group.style.cursor="pointer";
+  svg("rect",{x:x-103,y:y-28,width:206,height:60,rx:10,
+     fill:selected?"#fff1d5":inConflict?"#fff0ee":"#e9f6f2",
+     stroke:selected?"#b77923":inConflict?"#bb4e57":"#368b70",
+     "stroke-width":selected?3.5:2},group);
+  txt(group,x,y-7,"L"+(index+1)+(inConflict?" · conflict":" · atom"),
+      inConflict?"#a33840":"#2e735b",12);
+  const condensed=expression.replace(/\\s+/g," ");
+  txt(group,x,y+14,condensed.length>29?condensed.slice(0,27)+"…":condensed,
+      "#23384b",11);
+ });
+ if(atoms.length===0)txt(graph,w/2,h/2,"No arithmetic predicates were parsed.","#718495",14);
+ const modelEntries=Object.entries(data.model||{});
+ el("qflia-verdict").textContent=data.status+
+     " · C++ CDCL(T) · "+duration(data.elapsed_seconds);
+ el("qflia-stats").textContent="Boolean CDCL passes: "+data.boolean_iterations+
+     " · Integer theory checks: "+data.theory_checks+
+     " · Integer branches: "+data.theory_branches+
+     " · Learned conflict atoms: "+core.size+
+     (modelEntries.length?" · Model: "+modelEntries.map(([k,v])=>k+" = "+v).join(", "):"")+
+     (data.reason?" · "+data.reason:"");
+}
+el("qflia-graph").addEventListener("click",event=>{
+ const target=event.target.closest("[data-atom]");
+ if(target)showNativeAtom(Number(target.getAttribute("data-atom")));
+});
+el("qflia-graph").addEventListener("keydown",event=>{
+ const target=event.target.closest("[data-atom]");
+ if(target&&(event.key==="Enter"||event.key===" ")){
+  event.preventDefault();showNativeAtom(Number(target.getAttribute("data-atom")));
+ }
+});
+el("cancel-smt").onclick=async()=>{
+ if(!smtRunId)return;
+ smtCancelled=true;
+ el("cancel-smt").disabled=true;
+ el("smt-run-status").textContent="Requesting stop…";
+ try{
+  const response=await fetch("/api/smt-cancel",{method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({run_id:smtRunId})});
+  const data=await response.json();
+  el("smt-run-status").textContent=data.cancel_requested?"Cancellation requested":"Solve already finished";
+ }catch(e){el("smt-run-status").textContent="Stop failed: "+e.message}
+};
+async function runSmtEngine(kind){
+ const source=el("theory-source").value;
+ const native=kind==="native",button=el(native?"solve-smt":"solve-smt-reference");
+ const other=el(native?"solve-smt-reference":"solve-smt");
+ button.disabled=true;other.disabled=true;smtCancelled=false;
+ smtRunId=crypto.randomUUID().replaceAll("-","");
+ el("cancel-smt").disabled=false;
+ const started=performance.now(),status=el("smt-run-status");
+ status.textContent=(native?"C++ CDCL(T) QF_LIA":"Z3 independent oracle")+
+                    " solving… (no time limit)";
+ el("smt-result").textContent="Running "+(native?"native C++ QF_LIA":"Z3")+
+                               " on actual SMT-LIB input…";
+ try{
+  const response=await fetch(native?"/api/native-smt":"/api/smt-check",{
+   method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({source,run_id:smtRunId})
+  });
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||"SMT execution failed");
+  status.textContent=(native?"C++ QF_LIA":"Z3")+
+     " · "+data.status+" · "+duration(data.elapsed_seconds);
+  if(native){
+   nativeResult=data;selectedNativeAtom=null;drawNativeGraph(data);
+   if(data.atoms?.length)showNativeAtom(data.conflict_atoms?.[0]??0);
+   el("smt-result").textContent=JSON.stringify({
+    status:data.status,backend:data.backend,reason:data.reason,
+    model:data.model,conflict_atom_indices:data.conflict_atoms,
+    boolean_iterations:data.boolean_iterations,
+    theory_checks:data.theory_checks,theory_branches:data.theory_branches,
+    elapsed_seconds:data.elapsed_seconds},null,2);
+  }else{
+   el("smt-result").textContent=JSON.stringify({
+    status:data.status,backend:data.backend,model:data.model,
+    unsat_core_indices:data.unsat_core_indices,
+    elapsed_seconds:data.process_elapsed_seconds},null,2);
+  }
+ }catch(error){
+  status.textContent=smtCancelled?"Solve stopped":"SMT solver error";
+  el("smt-result").textContent=smtCancelled?"Stopped on user request.":error.message;
+ }finally{
+  button.disabled=false;other.disabled=false;
+  el("cancel-smt").disabled=true;smtRunId=null;
+ }
+}
+el("solve-smt").onclick=()=>runSmtEngine("native");
+el("solve-smt-reference").onclick=()=>runSmtEngine("z3");
+
+el("load").onclick=()=>loadExample().catch(e=>notice(e.message));
+el("run").onclick=solve;
+el("file").onchange=async function(){const file=this.files[0];if(!file)return;if(file.size>262144){notice("File too large");return}el("source").value=await file.text();notice(file.name+" loaded")};
+el("prev").onclick=()=>{stop();setFollow(false);step--;render()};
+el("next").onclick=()=>{stop();setFollow(false);step++;render()};
+el("reset").onclick=()=>{stop();setFollow(false);step=0;render()};
+el("seek").oninput=e=>{stop();setFollow(false);step=Number(e.target.value);render()};
+el("play").onclick=()=>{
+ if(playTimer!==null){stop();return}if(!result||!result.events.length)return;setFollow(false);
+ if(step===result.events.length-1)step=0;
+ el("play").textContent="Pause";
+ playTimer=setInterval(()=>{if(step===result.events.length-1){stop();return}step++;render()},850);
+};
+document.addEventListener("keydown",e=>{if(["TEXTAREA","INPUT","SELECT"].includes(document.activeElement.tagName))return;
+ if(e.key==="ArrowRight"&&result){stop();setFollow(false);step++;render()}
+ if(e.key==="ArrowLeft"&&result){stop();setFollow(false);step--;render()}
+});
+el("zoomin").onclick=()=>updateZoom(graphZoom*1.22);
+el("zoomout").onclick=()=>updateZoom(graphZoom/1.22);
+el("fit").onclick=fitGraph;
+el("live").onclick=()=>setFollow(true);
+// Drag to pan across the entire SVG rather than cropping the layout.
+const graphbox=el("graphbox");let drag=null;
+graphbox.addEventListener("pointerdown",e=>{
+ if(e.button!==0)return;
+ drag={x:e.clientX,y:e.clientY,left:graphbox.scrollLeft,top:graphbox.scrollTop};
+ graphbox.setPointerCapture(e.pointerId);graphbox.classList.add("dragging");
+});
+graphbox.addEventListener("pointermove",e=>{
+ if(!drag)return;
+ const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+ if(Math.abs(dx)+Math.abs(dy)>4)setFollow(false);
+ graphbox.scrollLeft=drag.left-dx;graphbox.scrollTop=drag.top-dy;
+});
+for(const ev of ["pointerup","pointercancel","lostpointercapture"])
+ graphbox.addEventListener(ev,()=>{drag=null;graphbox.classList.remove("dragging")});
+graphbox.addEventListener("wheel",e=>{
+ if(!e.ctrlKey)return;e.preventDefault();updateZoom(graphZoom*(e.deltaY<0?1.12:1/1.12));
+},{passive:false});
+(async()=>{try{
+ const r=await fetch("/api/examples"),data=await r.json();
+ data.examples.forEach(name=>{const option=document.createElement("option");option.value=name;option.textContent=name;el("examples").append(option)});
+ el("examples").value=data.examples.includes("cdcl_backjump_to_one.cnf")?"cdcl_backjump_to_one.cnf":data.examples[0];
+ const theoryResponse=await fetch("/api/theory-examples"),theoryData=await theoryResponse.json();
+ theoryData.examples.filter(name=>name.startsWith("lia_")||name.startsWith("qf_lia_")).forEach(name=>{
+   const option=document.createElement("option");option.value=name;option.textContent=name;
+   el("theory-examples").append(option)});
+ el("theory-examples").value="qf_lia_three_literals_unsat.smt2";
+ if(el("theory-examples").options.length)await previewTheory();
+ document.querySelector("#theory-source").closest("details").open=true;
+ await refreshCatalog();
+ await loadExample();await solve();
+}catch(e){notice("Error: "+e.message)}})();
+</script></body></html>

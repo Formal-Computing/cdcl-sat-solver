@@ -1,0 +1,237 @@
+{
+  "description": "SATLIB original DIMACS benchmark subset",
+  "homepage": "https://www.cs.ubc.ca/~hoos/SATLIB/index-ubc.html",
+  "benchmarks": [
+    {
+      "file": "uf20-01.cnf",
+      "expected": "SAT",
+      "variables": 20,
+      "clauses": 91,
+      "difficulty": "warm-up",
+      "archive": "RND3SAT/uf20-91.tar.gz",
+      "member": "uf20-01.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/RND3SAT/uf20-91.tar.gz",
+      "sha256": "bbb43578ee4f0634de44a7632b6df4ee6b9204f1c82e77660616b0891b00eb24"
+    },
+    {
+      "file": "uf20-02.cnf",
+      "expected": "SAT",
+      "variables": 20,
+      "clauses": 91,
+      "difficulty": "warm-up",
+      "archive": "RND3SAT/uf20-91.tar.gz",
+      "member": "uf20-02.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/RND3SAT/uf20-91.tar.gz",
+      "sha256": "2b3686b6fed207b5223a0d20b2c6f646d70107660b6c1844f63e1905f6ad4984"
+    },
+    {
+      "file": "hole6.cnf",
+      "expected": "UNSAT",
+      "variables": 42,
+      "clauses": 133,
+      "difficulty": "hard/very hard",
+      "archive": "DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "member": "hole6.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "sha256": "1c2da59d23617fa81637a8a56c359002eaaa807a27d70fb684645f84e2361fd7"
+    },
+    {
+      "file": "aim-50-1_6-no-1.cnf",
+      "expected": "UNSAT",
+      "variables": 50,
+      "clauses": 80,
+      "difficulty": "medium/hard",
+      "archive": "DIMACS/AIM/aim.tar.gz",
+      "member": "aim-50-1_6-no-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/AIM/aim.tar.gz",
+      "sha256": "17d42ca0ef48f3a0523a4a9f0a9f683da9acdc9a61f175dc9e143398e6532a86"
+    },
+    {
+      "file": "aim-50-1_6-yes1-1.cnf",
+      "expected": "SAT",
+      "variables": 50,
+      "clauses": 80,
+      "difficulty": "medium/hard",
+      "archive": "DIMACS/AIM/aim.tar.gz",
+      "member": "aim-50-1_6-yes1-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/AIM/aim.tar.gz",
+      "sha256": "d96f1edb1db3d0e55a3ff0f7707517e41a79374acbb857df051e5441ab27657d"
+    },
+    {
+      "file": "uf50-01.cnf",
+      "expected": "SAT",
+      "variables": 50,
+      "clauses": 218,
+      "difficulty": "medium",
+      "archive": "RND3SAT/uf50-218.tar.gz",
+      "member": "uf50-01.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/RND3SAT/uf50-218.tar.gz",
+      "sha256": "cf33c163b99d2a10e25dff937fdc76db79e45079116c0890d130219666fd3ba5"
+    },
+    {
+      "file": "uf50-02.cnf",
+      "expected": "SAT",
+      "variables": 50,
+      "clauses": 218,
+      "difficulty": "medium",
+      "archive": "RND3SAT/uf50-218.tar.gz",
+      "member": "uf50-02.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/RND3SAT/uf50-218.tar.gz",
+      "sha256": "6df53d8a737a2619a39bb0481d0bf0754ac6d6621cc85bfaf9f90288a29c4a90"
+    },
+    {
+      "file": "uuf50-01.cnf",
+      "expected": "UNSAT",
+      "variables": 50,
+      "clauses": 218,
+      "difficulty": "medium",
+      "archive": "RND3SAT/uuf50-218.tar.gz",
+      "member": "UUF50.218.1000/uuf50-01.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/RND3SAT/uuf50-218.tar.gz",
+      "sha256": "d95207c572bc997a7f83240c0cd39e9ec82cc2c8fb20bf95e551bc9870484966"
+    },
+    {
+      "file": "uuf50-02.cnf",
+      "expected": "UNSAT",
+      "variables": 50,
+      "clauses": 218,
+      "difficulty": "medium",
+      "archive": "RND3SAT/uuf50-218.tar.gz",
+      "member": "UUF50.218.1000/uuf50-02.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/RND3SAT/uuf50-218.tar.gz",
+      "sha256": "398a0973fd40530e3034f4f873525fe0e0c6c973535b2957289a0bbeb34f0a6b"
+    },
+    {
+      "file": "hole7.cnf",
+      "expected": "UNSAT",
+      "variables": 56,
+      "clauses": 204,
+      "difficulty": "hard/very hard",
+      "archive": "DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "member": "hole7.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "sha256": "225791cbb02429d71bae87f331460d456ee11fecc384a6af049813f42e6319ab"
+    },
+    {
+      "file": "dubois20.cnf",
+      "expected": "UNSAT",
+      "variables": 60,
+      "clauses": 160,
+      "difficulty": "hard",
+      "archive": "DIMACS/DUBOIS/dubois.tar.gz",
+      "member": "dubois20.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/DUBOIS/dubois.tar.gz",
+      "sha256": "82059aba0e5773644b386eb6bcbe53680655390cb041873a3cb3e93f7bd896a7"
+    },
+    {
+      "file": "hole8.cnf",
+      "expected": "UNSAT",
+      "variables": 72,
+      "clauses": 297,
+      "difficulty": "hard/very hard",
+      "archive": "DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "member": "hole8.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "sha256": "e63ad9adca73c42dab2f89a3cec77dbf7800d595f72ce740b32004431e1bfd84"
+    },
+    {
+      "file": "dubois30.cnf",
+      "expected": "UNSAT",
+      "variables": 90,
+      "clauses": 240,
+      "difficulty": "hard",
+      "archive": "DIMACS/DUBOIS/dubois.tar.gz",
+      "member": "dubois30.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/DUBOIS/dubois.tar.gz",
+      "sha256": "5ab95e48051afa9d7410d52fb07ead3e8a4ec97243d9f9c3f36aa0ebe78d4059"
+    },
+    {
+      "file": "flat30-1.cnf",
+      "expected": "SAT",
+      "variables": 90,
+      "clauses": 300,
+      "difficulty": "medium/hard",
+      "archive": "GCP/flat30-60.tar.gz",
+      "member": "flat30-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/GCP/flat30-60.tar.gz",
+      "sha256": "f673671312ec4f751464303ccee09a7dcd7f8d28439797ed4e456b1ac29dfb4f"
+    },
+    {
+      "file": "flat30-2.cnf",
+      "expected": "SAT",
+      "variables": 90,
+      "clauses": 300,
+      "difficulty": "medium/hard",
+      "archive": "GCP/flat30-60.tar.gz",
+      "member": "flat30-2.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/GCP/flat30-60.tar.gz",
+      "sha256": "2b3c957f2e7a4224aa53b02ccd3a30cabaf8fff6c6bd18fbd79e7ff6e925aaa0"
+    },
+    {
+      "file": "hole9.cnf",
+      "expected": "UNSAT",
+      "variables": 90,
+      "clauses": 415,
+      "difficulty": "hard/very hard",
+      "archive": "DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "member": "hole9.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/PHOLE/pigeon-hole.tar.gz",
+      "sha256": "e5821911954338bdf496866bdbdf2bab123cbc09dd8e6d19a38277f393bc30c6"
+    },
+    {
+      "file": "aim-100-1_6-no-1.cnf",
+      "expected": "UNSAT",
+      "variables": 100,
+      "clauses": 160,
+      "difficulty": "medium/hard",
+      "archive": "DIMACS/AIM/aim.tar.gz",
+      "member": "aim-100-1_6-no-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/AIM/aim.tar.gz",
+      "sha256": "42058adae7534bb0613399393b369724c172055a0056a433ddc82cd6512545e2"
+    },
+    {
+      "file": "aim-100-1_6-yes1-1.cnf",
+      "expected": "SAT",
+      "variables": 100,
+      "clauses": 160,
+      "difficulty": "medium/hard",
+      "archive": "DIMACS/AIM/aim.tar.gz",
+      "member": "aim-100-1_6-yes1-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/AIM/aim.tar.gz",
+      "sha256": "74560a84735393495e1665fb2999f6b7948fb7f12b11c23e530aedccbf8cbbec"
+    },
+    {
+      "file": "dubois50.cnf",
+      "expected": "UNSAT",
+      "variables": 150,
+      "clauses": 400,
+      "difficulty": "hard",
+      "archive": "DIMACS/DUBOIS/dubois.tar.gz",
+      "member": "dubois50.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/DUBOIS/dubois.tar.gz",
+      "sha256": "417ea88d5df96c7e6da2250cbe6da7effd012d7de0b0e037ee086254e4e2fc59"
+    },
+    {
+      "file": "aim-200-1_6-no-1.cnf",
+      "expected": "UNSAT",
+      "variables": 200,
+      "clauses": 320,
+      "difficulty": "medium/hard",
+      "archive": "DIMACS/AIM/aim.tar.gz",
+      "member": "aim-200-1_6-no-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/AIM/aim.tar.gz",
+      "sha256": "8dd8d8f1311dbb924feec992351d46a26eb55b61f2f167023e425c8a6d4fe992"
+    },
+    {
+      "file": "aim-200-1_6-yes1-1.cnf",
+      "expected": "SAT",
+      "variables": 200,
+      "clauses": 320,
+      "difficulty": "medium/hard",
+      "archive": "DIMACS/AIM/aim.tar.gz",
+      "member": "aim-200-1_6-yes1-1.cnf",
+      "source_url": "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT/DIMACS/AIM/aim.tar.gz",
+      "sha256": "8b8cace803201c59258bc3066e13deeeacb87f612651fede8baf96a4effe93d7"
+    }
+  ]
+}

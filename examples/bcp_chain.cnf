@@ -1,0 +1,6 @@
+c (x1) AND (!x1 OR x2) AND (!x2 OR !x3) AND (x3 OR x4)
+p cnf 4 4
+1 0
+-1 2 0
+-2 -3 0
+3 4 0

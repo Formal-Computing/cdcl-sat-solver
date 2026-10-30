@@ -1,0 +1,9 @@
+c UW CSEP 590B L2 CDCL by Example, six clauses, eight variables.
+c Expected SAT. Track x1, x8, and propagation conflicts.
+p cnf 8 6
+-1 2 -4 0
+-1 -2 3 0
+-3 -4 0
+4 5 6 0
+-5 7 0
+-6 7 -8 0
